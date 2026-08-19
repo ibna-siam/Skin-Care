@@ -26,6 +26,7 @@ export const AdminProducts: React.FC = () => {
   const [badge, setBadge] = useState('');
   const [isBestSeller, setIsBestSeller] = useState(false);
   const [isFeatured, setIsFeatured] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Fetch Products
   const { data: productsData, isLoading } = useQuery({
@@ -102,6 +103,7 @@ export const AdminProducts: React.FC = () => {
           badge,
           isBestSeller,
           isFeatured,
+          images: imageUrl ? [{ url: imageUrl, isPrimary: true, sortOrder: 0 }] : [],
         });
       } else {
         await adminService.createProduct({
@@ -362,16 +364,18 @@ export const AdminProducts: React.FC = () => {
                       placeholder="https://... or upload below"
                       className="flex-1 p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 text-xs"
                     />
-                    <label className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl cursor-pointer font-semibold flex items-center gap-1.5 shrink-0 transition-colors">
-                      <ImageIcon size={14} />
-                      <span>Upload</span>
+                    <label className={`px-4 py-2.5 ${isUploadingImage ? 'bg-slate-700 cursor-not-allowed' : 'bg-slate-800 hover:bg-slate-700 cursor-pointer'} text-slate-200 rounded-xl font-semibold flex items-center gap-1.5 shrink-0 transition-colors`}>
+                      <ImageIcon size={14} className={isUploadingImage ? 'animate-pulse' : ''} />
+                      <span>{isUploadingImage ? 'Uploading...' : 'Upload'}</span>
                       <input
                         type="file"
                         accept="image/*"
+                        disabled={isUploadingImage}
                         className="hidden"
                         onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (file) {
+                            setIsUploadingImage(true);
                             try {
                               const res = await adminService.uploadImage(file, 'skincare-products');
                               if (res?.url) {
@@ -379,6 +383,8 @@ export const AdminProducts: React.FC = () => {
                               }
                             } catch (err: any) {
                               alert(err.message || 'Image upload failed');
+                            } finally {
+                              setIsUploadingImage(false);
                             }
                           }
                         }}

@@ -25,6 +25,17 @@ export const Home: React.FC = () => {
     queryFn: () => productService.getFeaturedReviews(),
   });
 
+  // Fetch Homepage CMS Sections
+  const { data: cmsSections = [] } = useQuery({
+    queryKey: ['homepage-cms'],
+    queryFn: () => orderService.getHomepageCMS(),
+  });
+
+  const heroSection = cmsSections.find((s: any) => s.sectionKey === 'hero');
+  const heroTitle = heroSection?.title || 'Original Skincare for Real Skin';
+  const heroSubtitle = heroSection?.subtitle || 'Trusted brands. 100% authentic.';
+  const heroImageUrl = heroSection?.imageUrl || 'https://images.unsplash.com/photo-1576426863848-c21f53c60b19?q=80&w=1200&auto=format&fit=crop';
+
   const bestSellerProducts: Product[] = productsData?.data || [];
   const reviews = reviewsData && reviewsData.length > 0 ? reviewsData : [
     {
@@ -81,11 +92,17 @@ export const Home: React.FC = () => {
             <div className="lg:col-span-5 space-y-6 z-10">
               <div className="space-y-2">
                 <h1 className="font-serif text-4xl sm:text-5xl lg:text-[52px] leading-[1.15] font-bold text-charcoal-900 tracking-tight">
-                  Original Skincare for <br />
-                  <span className="text-brand-800">Real Skin</span>
+                  {heroTitle.includes('for') ? (
+                    <>
+                      {heroTitle.split('for')[0]}for <br />
+                      <span className="text-brand-800">{heroTitle.split('for')[1]}</span>
+                    </>
+                  ) : (
+                    heroTitle
+                  )}
                 </h1>
                 <p className="text-base sm:text-lg text-charcoal-800/80 font-normal pt-1">
-                  Trusted brands. 100% authentic.
+                  {heroSubtitle}
                 </p>
               </div>
 
@@ -110,8 +127,8 @@ export const Home: React.FC = () => {
             <div className="lg:col-span-7 relative flex items-center justify-center">
               <div className="relative w-full rounded-2xl overflow-hidden shadow-soft-lg border border-cream-300/60 bg-gradient-to-tr from-cream-300 via-cream-100 to-cream-200">
                 <img
-                  src="https://images.unsplash.com/photo-1576426863848-c21f53c60b19?q=80&w=1200&auto=format&fit=crop"
-                  alt="Original Skincare for Real Skin Models"
+                  src={heroImageUrl}
+                  alt={heroTitle}
                   className="w-full h-auto max-h-[440px] object-cover object-center"
                 />
 

@@ -196,28 +196,45 @@ export async function adminUpdateProduct(req: Request, res: Response, next: Next
     const existing = await prisma.product.findUnique({ where: { id } });
     if (!existing) return sendError(res, 'Product not found', 404);
 
+    const updateData: any = {
+      name: body.name,
+      price: body.price !== undefined ? parseFloat(body.price) : undefined,
+      compareAtPrice: body.compareAtPrice !== undefined ? (body.compareAtPrice ? parseFloat(body.compareAtPrice) : null) : undefined,
+      sku: body.sku,
+      stock: body.stock !== undefined ? parseInt(body.stock, 10) : undefined,
+      status: body.status,
+      description: body.description,
+      shortDescription: body.shortDescription,
+      brandId: body.brandId,
+      categoryId: body.categoryId,
+      gender: body.gender,
+      ingredients: body.ingredients,
+      benefits: body.benefits,
+      howToUse: body.howToUse,
+      isFeatured: body.isFeatured,
+      isBestSeller: body.isBestSeller,
+      badge: body.badge,
+    };
+
+    // If images array is provided, replace existing images with the new set
+    if (Array.isArray(body.images) && body.images.length > 0) {
+      await prisma.productImage.deleteMany({
+        where: { productId: id },
+      });
+      updateData.images = {
+        create: body.images.map((img: any, idx: number) => ({
+          url: img.url,
+          altText: img.altText || body.name || existing.name,
+          sortOrder: img.sortOrder ?? idx,
+          isPrimary: img.isPrimary ?? (idx === 0),
+        })),
+      };
+    }
+
     // Update product core fields
     const updated = await prisma.product.update({
       where: { id },
-      data: {
-        name: body.name,
-        price: body.price !== undefined ? parseFloat(body.price) : undefined,
-        compareAtPrice: body.compareAtPrice !== undefined ? (body.compareAtPrice ? parseFloat(body.compareAtPrice) : null) : undefined,
-        sku: body.sku,
-        stock: body.stock !== undefined ? parseInt(body.stock, 10) : undefined,
-        status: body.status,
-        description: body.description,
-        shortDescription: body.shortDescription,
-        brandId: body.brandId,
-        categoryId: body.categoryId,
-        gender: body.gender,
-        ingredients: body.ingredients,
-        benefits: body.benefits,
-        howToUse: body.howToUse,
-        isFeatured: body.isFeatured,
-        isBestSeller: body.isBestSeller,
-        badge: body.badge,
-      },
+      data: updateData,
       include: { brand: true, category: true, images: true },
     });
 

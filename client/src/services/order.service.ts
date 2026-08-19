@@ -49,4 +49,9 @@ export const orderService = {
     const res = await api.post<ApiResponse>('/newsletter/subscribe', { email });
     return res.data;
   },
+
+  async getHomepageCMS() {
+    const res = await api.get<ApiResponse<any[]>>('/cms/homepage');
+    return res.data.data || [];
+  },
 };
