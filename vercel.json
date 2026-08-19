@@ -1,0 +1,11 @@
+{
+  "buildCommand": "npm run build --workspace=@skincare/shared && npm run build --workspace=@skincare/client",
+  "outputDirectory": "client/dist",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
