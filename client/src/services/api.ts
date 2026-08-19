@@ -24,6 +24,10 @@ const getOrCreateSessionId = () => {
 
 api.interceptors.request.use((config) => {
   config.headers['x-session-id'] = getOrCreateSessionId();
+  const token = localStorage.getItem('skincare_auth_token');
+  if (token) {
+    config.headers['Authorization'] = `Bearer ${token}`;
+  }
   return config;
 });
 

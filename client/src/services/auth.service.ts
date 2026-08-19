@@ -4,17 +4,27 @@ import { ApiResponse, UserProfile } from '@skincare/shared';
 export const authService = {
   async register(data: { name: string; email: string; phone?: string; password: string; preferredSkinType?: string }) {
     const res = await api.post<ApiResponse<{ user: UserProfile; token: string }>>('/auth/register', data);
+    if (res.data.data?.token) {
+      localStorage.setItem('skincare_auth_token', res.data.data.token);
+    }
     return res.data;
   },
 
   async login(data: { identifier: string; password: string }) {
     const res = await api.post<ApiResponse<{ user: UserProfile; token: string }>>('/auth/login', data);
+    if (res.data.data?.token) {
+      localStorage.setItem('skincare_auth_token', res.data.data.token);
+    }
     return res.data;
   },
 
   async logout() {
-    const res = await api.post<ApiResponse>('/auth/logout');
-    return res.data;
+    try {
+      const res = await api.post<ApiResponse>('/auth/logout');
+      return res.data;
+    } finally {
+      localStorage.removeItem('skincare_auth_token');
+    }
   },
 
   async getMe() {
