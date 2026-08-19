@@ -14,6 +14,7 @@
     "dev:server": "npm run dev --workspace=server",
     "dev:client": "npm run dev --workspace=client",
     "build": "npm run build --workspace=shared && npm run build --workspace=server && npm run build --workspace=client",
+    "build:server": "npm run build --workspace=shared && npm run build --workspace=server",
     "typecheck": "npm run typecheck --workspace=shared && npm run typecheck --workspace=server && npm run typecheck --workspace=client",
     "db:generate": "npm run db:generate --workspace=server",
     "db:push": "npm run db:push --workspace=server",
