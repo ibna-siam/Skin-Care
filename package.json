@@ -19,7 +19,7 @@
     "db:generate": "npm run db:generate --workspace=server",
     "db:push": "npm run db:push --workspace=server",
     "db:seed": "npm run db:seed --workspace=server",
-    "postinstall": "prisma generate",
+    "postinstall": "npx --yes prisma generate || true",
     "test": "npm run test --workspace=server"
   },
   "dependencies": {
