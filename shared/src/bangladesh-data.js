@@ -1,11 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.BD_PHONE_REGEX = exports.SHIPPING_RATES = exports.BANGLADESH_DIVISIONS = void 0;
-exports.calculateShippingFee = calculateShippingFee;
-exports.formatBDT = formatBDT;
-exports.isValidBDPhone = isValidBDPhone;
-exports.normalizeBDPhone = normalizeBDPhone;
-exports.BANGLADESH_DIVISIONS = [
+export const BANGLADESH_DIVISIONS = [
     {
         id: "dhaka",
         name: "Dhaka",
@@ -127,36 +120,36 @@ exports.BANGLADESH_DIVISIONS = [
         ],
     },
 ];
-exports.SHIPPING_RATES = {
+export const SHIPPING_RATES = {
     INSIDE_DHAKA_STANDARD: 60,
     OUTSIDE_DHAKA_STANDARD: 120,
     EXPRESS_DELIVERY_ADDON: 80,
     FREE_SHIPPING_THRESHOLD: 2500, // ৳2500 for free delivery
 };
-function calculateShippingFee(districtId, subtotal, isExpress = false) {
-    if (subtotal >= exports.SHIPPING_RATES.FREE_SHIPPING_THRESHOLD && !isExpress) {
+export function calculateShippingFee(districtId, subtotal, isExpress = false) {
+    if (subtotal >= SHIPPING_RATES.FREE_SHIPPING_THRESHOLD && !isExpress) {
         return 0;
     }
     const isInsideDhaka = districtId === "dhaka-city";
     let baseFee = isInsideDhaka
-        ? exports.SHIPPING_RATES.INSIDE_DHAKA_STANDARD
-        : exports.SHIPPING_RATES.OUTSIDE_DHAKA_STANDARD;
+        ? SHIPPING_RATES.INSIDE_DHAKA_STANDARD
+        : SHIPPING_RATES.OUTSIDE_DHAKA_STANDARD;
     if (isExpress) {
-        baseFee += exports.SHIPPING_RATES.EXPRESS_DELIVERY_ADDON;
+        baseFee += SHIPPING_RATES.EXPRESS_DELIVERY_ADDON;
     }
     return baseFee;
 }
-function formatBDT(amount) {
+export function formatBDT(amount) {
     return `৳${amount.toLocaleString("en-BD", {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
     })}`;
 }
-exports.BD_PHONE_REGEX = /^(?:\+8801|8801|01)[3-9]\d{8}$/;
-function isValidBDPhone(phone) {
-    return exports.BD_PHONE_REGEX.test(phone.replace(/[\s-]/g, ""));
+export const BD_PHONE_REGEX = /^(?:\+8801|8801|01)[3-9]\d{8}$/;
+export function isValidBDPhone(phone) {
+    return BD_PHONE_REGEX.test(phone.replace(/[\s-]/g, ""));
 }
-function normalizeBDPhone(phone) {
+export function normalizeBDPhone(phone) {
     const cleaned = phone.replace(/[\s-]/g, "");
     if (cleaned.startsWith("+88")) {
         return cleaned;
