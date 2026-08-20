@@ -42,6 +42,7 @@ const AdminCustomers = lazy(() => import('./pages/admin/AdminCustomers').then(m 
 const AdminReviews = lazy(() => import('./pages/admin/AdminReviews').then(m => ({ default: m.AdminReviews })));
 const AdminCoupons = lazy(() => import('./pages/admin/AdminCoupons').then(m => ({ default: m.AdminCoupons })));
 const AdminCMS = lazy(() => import('./pages/admin/AdminCMS').then(m => ({ default: m.AdminCMS })));
+const AdminPlaceholderSection = lazy(() => import('./pages/admin/AdminPlaceholderSection').then(m => ({ default: m.AdminPlaceholderSection })));
 
 // QueryClient with 5-minute stale cache for blazing fast navigation
 const queryClient = new QueryClient({
@@ -152,11 +153,31 @@ export const App: React.FC = () => {
         >
           <Route index element={<AdminDashboard />} />
           <Route path="products" element={<AdminProducts />} />
+          <Route path="categories" element={<AdminPlaceholderSection />} />
+          <Route path="brands" element={<AdminPlaceholderSection />} />
+          <Route path="inventory" element={<AdminPlaceholderSection />} />
           <Route path="orders" element={<AdminOrders />} />
           <Route path="customers" element={<AdminCustomers />} />
+          <Route path="customers/segments" element={<AdminPlaceholderSection />} />
           <Route path="reviews" element={<AdminReviews />} />
           <Route path="coupons" element={<AdminCoupons />} />
+          <Route path="campaigns" element={<AdminPlaceholderSection />} />
+          <Route path="automations" element={<AdminPlaceholderSection />} />
+          <Route path="notifications" element={<AdminPlaceholderSection />} />
           <Route path="cms" element={<AdminCMS />} />
+          <Route path="banners" element={<AdminPlaceholderSection />} />
+          <Route path="skin-guide" element={<AdminPlaceholderSection />} />
+          <Route path="newsletter" element={<AdminPlaceholderSection />} />
+          <Route path="analytics/sales" element={<AdminPlaceholderSection />} />
+          <Route path="analytics/products" element={<AdminPlaceholderSection />} />
+          <Route path="analytics/customers" element={<AdminPlaceholderSection />} />
+          <Route path="analytics/marketing" element={<AdminPlaceholderSection />} />
+          <Route path="operations/delivery" element={<AdminPlaceholderSection />} />
+          <Route path="operations/payments" element={<AdminPlaceholderSection />} />
+          <Route path="operations/alerts" element={<AdminPlaceholderSection />} />
+          <Route path="system/users" element={<AdminPlaceholderSection />} />
+          <Route path="settings" element={<AdminPlaceholderSection />} />
+          <Route path="system/activity-logs" element={<AdminPlaceholderSection />} />
         </Route>
       </Routes>
     </QueryClientProvider>
