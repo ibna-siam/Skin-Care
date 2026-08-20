@@ -14,12 +14,22 @@ export const skinGuideService = {
 };
 
 export const adminService = {
-  async getDashboardStats() {
-    const res = await api.get<ApiResponse<any>>('/admin/dashboard');
+  async getDashboardStats(params: { range?: string; startDate?: string; endDate?: string } = {}) {
+    const res = await api.get<ApiResponse<any>>('/admin/dashboard', { params });
     return res.data.data;
   },
 
-  async getProducts(params: { page?: number; limit?: number; search?: string; status?: string } = {}) {
+  async getProducts(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    categoryId?: string;
+    brandId?: string;
+    stockLevel?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  } = {}) {
     const res = await api.get<ApiResponse<any[]>>('/admin/products', { params });
     return res.data;
   },
@@ -34,33 +44,124 @@ export const adminService = {
     return res.data;
   },
 
+  async updateProductStock(id: string, data: { stock: number; lowStockThreshold?: number }) {
+    const res = await api.patch<ApiResponse>(`/admin/products/${id}/stock`, data);
+    return res.data;
+  },
+
+  async bulkUpdateProducts(productIds: string[], status: string) {
+    const res = await api.post<ApiResponse>('/admin/products/bulk-status', { productIds, status });
+    return res.data;
+  },
+
   async deleteProduct(id: string) {
     const res = await api.delete<ApiResponse>(`/admin/products/${id}`);
     return res.data;
   },
 
-  async getOrders(params: { page?: number; limit?: number; status?: string; search?: string } = {}) {
+  async exportProductsCsv() {
+    const res = await api.get('/admin/products/export/csv', { responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `skincare-products-inventory-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  },
+
+  async getOrders(params: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    paymentStatus?: string;
+    paymentMethod?: string;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    startDate?: string;
+    endDate?: string;
+  } = {}) {
     const res = await api.get<ApiResponse<any[]>>('/admin/orders', { params });
     return res.data;
   },
 
-  async updateOrderStatus(id: string, data: { status: string; note?: string; trackingNumber?: string; courierName?: string }) {
+  async getOrderDetail(id: string) {
+    const res = await api.get<ApiResponse<any>>(`/admin/orders/${id}`);
+    return res.data.data;
+  },
+
+  async updateOrderStatus(id: string, data: { status: string; note?: string; trackingNumber?: string; courierName?: string; estimatedDelivery?: string }) {
     const res = await api.put<ApiResponse>(`/admin/orders/${id}/status`, data);
     return res.data;
   },
 
-  async getCustomers() {
-    const res = await api.get<ApiResponse<any[]>>('/admin/customers');
-    return res.data.data || [];
+  async bulkUpdateOrderStatus(orderIds: string[], status: string, note?: string) {
+    const res = await api.post<ApiResponse>('/admin/orders/bulk-status', { orderIds, status, note });
+    return res.data;
   },
 
-  async getReviews() {
-    const res = await api.get<ApiResponse<any[]>>('/admin/reviews');
-    return res.data.data || [];
+  async exportOrdersCsv(status?: string) {
+    const res = await api.get('/admin/orders/export/csv', {
+      params: { status },
+      responseType: 'blob',
+    });
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `skincare-orders-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  },
+
+  async getCustomers(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    segment?: string;
+    skinType?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  } = {}) {
+    const res = await api.get<ApiResponse<any[]>>('/admin/customers', { params });
+    return res.data;
+  },
+
+  async getCustomerDetail(id: string) {
+    const res = await api.get<ApiResponse<any>>(`/admin/customers/${id}`);
+    return res.data.data;
+  },
+
+  async exportCustomersCsv() {
+    const res = await api.get('/admin/customers/export/csv', { responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `skincare-customers-crm-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  },
+
+  async getReviews(params: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    rating?: string;
+    search?: string;
+  } = {}) {
+    const res = await api.get<ApiResponse<any[]>>('/admin/reviews', { params });
+    return res.data;
   },
 
   async moderateReview(id: string, data: { status?: string; isFeatured?: boolean }) {
     const res = await api.put<ApiResponse>(`/admin/reviews/${id}/moderate`, data);
+    return res.data;
+  },
+
+  async deleteReview(id: string) {
+    const res = await api.delete<ApiResponse>(`/admin/reviews/${id}`);
     return res.data;
   },
 
@@ -74,8 +175,73 @@ export const adminService = {
     return res.data;
   },
 
+  async updateCoupon(id: string, data: any) {
+    const res = await api.put<ApiResponse>(`/admin/coupons/${id}`, data);
+    return res.data;
+  },
+
+  async deleteCoupon(id: string) {
+    const res = await api.delete<ApiResponse>(`/admin/coupons/${id}`);
+    return res.data;
+  },
+
+  async getCMSSections() {
+    const res = await api.get<ApiResponse<any[]>>('/admin/cms');
+    return res.data.data || [];
+  },
+
   async updateCMSSection(sectionKey: string, data: any) {
     const res = await api.put<ApiResponse>(`/admin/cms/sections/${sectionKey}`, data);
+    return res.data;
+  },
+
+  async getBanners() {
+    const res = await api.get<ApiResponse<any[]>>('/admin/banners');
+    return res.data.data || [];
+  },
+
+  async createBanner(data: any) {
+    const res = await api.post<ApiResponse>('/admin/banners', data);
+    return res.data;
+  },
+
+  async updateBanner(id: string, data: any) {
+    const res = await api.put<ApiResponse>(`/admin/banners/${id}`, data);
+    return res.data;
+  },
+
+  async deleteBanner(id: string) {
+    const res = await api.delete<ApiResponse>(`/admin/banners/${id}`);
+    return res.data;
+  },
+
+  async getAutomations() {
+    const res = await api.get<ApiResponse<any[]>>('/admin/automations');
+    return res.data.data || [];
+  },
+
+  async toggleAutomation(id: string, isActive: boolean) {
+    const res = await api.patch<ApiResponse>(`/admin/automations/${id}/toggle`, { isActive });
+    return res.data;
+  },
+
+  async runAutomation(triggerType?: string) {
+    const res = await api.post<ApiResponse>('/admin/automations/run', { triggerType });
+    return res.data;
+  },
+
+  async getAutomationLogs(params: { page?: number; limit?: number; triggerType?: string; status?: string } = {}) {
+    const res = await api.get<ApiResponse<any[]>>('/admin/automations/logs', { params });
+    return res.data;
+  },
+
+  async getNotifications() {
+    const res = await api.get<ApiResponse<any[]>>('/admin/notifications');
+    return res.data.data || [];
+  },
+
+  async sendBroadcastNotification(data: { title: string; message: string; type?: string }) {
+    const res = await api.post<ApiResponse>('/admin/notifications/broadcast', data);
     return res.data;
   },
 

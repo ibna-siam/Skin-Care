@@ -1,140 +1,329 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminService } from '../../services/admin.service';
-import { orderService } from '../../services/order.service';
-import { Sliders, Save, CheckCircle2, Image as ImageIcon } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
+import {
+  Layout,
+  Save,
+  Check,
+  Eye,
+  EyeOff,
+  Sparkles,
+  RefreshCw,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  HelpCircle,
+} from 'lucide-react';
+
+const DEFAULT_SECTIONS = [
+  {
+    sectionKey: 'hero',
+    name: 'Hero Banner Carousel',
+    defaultTitle: 'Dermatologist-Approved Skincare for Bangladesh',
+    defaultSubtitle: 'Tailored routines for your unique skin barrier and tropical climate.',
+    hasButton: true,
+  },
+  {
+    sectionKey: 'category_cards',
+    name: 'Featured Categories Grid',
+    defaultTitle: 'Shop by Skincare Category',
+    defaultSubtitle: 'Explore cleansers, hydrating serums, moisturizers, and broad-spectrum sunscreens.',
+    hasButton: false,
+  },
+  {
+    sectionKey: 'best_sellers',
+    name: 'Best Sellers Showcase',
+    defaultTitle: 'Top Rated Best Sellers',
+    defaultSubtitle: 'Most-loved skincare essentials verified by over 10,000+ happy customers.',
+    hasButton: true,
+  },
+  {
+    sectionKey: 'skin_quiz_banner',
+    name: 'AI Skin Routine Finder Banner',
+    defaultTitle: 'Not Sure Where to Begin? Take our 2-Minute Skin Quiz',
+    defaultSubtitle: 'Get a personalized morning & night regimen crafted by cosmetic dermatologists.',
+    hasButton: true,
+  },
+  {
+    sectionKey: 'customer_reviews',
+    name: 'Customer Testimonials & Proof',
+    defaultTitle: 'Loved by Real Skincare Enthusiasts',
+    defaultSubtitle: 'Verified feedback from customers across Dhaka, Chittagong, and Sylhet.',
+    hasButton: false,
+  },
+  {
+    sectionKey: 'newsletter',
+    name: 'Newsletter & Promo Signup',
+    defaultTitle: 'Get 10% Off Your First Order',
+    defaultSubtitle: 'Subscribe for exclusive skincare drop alerts, skincare advice, and member-only gifts.',
+    hasButton: true,
+  },
+];
 
 export const AdminCMS: React.FC = () => {
   const queryClient = useQueryClient();
-  const [heroHeading, setHeroHeading] = useState('Original Skincare for Real Skin');
-  const [heroSubtitle, setHeroSubtitle] = useState('Trusted brands. 100% authentic.');
-  const [heroImageUrl, setHeroImageUrl] = useState('https://images.unsplash.com/photo-1576426863848-c21f53c60b19?q=80&w=1400');
-  const [isUploading, setIsUploading] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>('hero');
+  const [savedSuccessKey, setSavedSuccessKey] = useState<string | null>(null);
 
-  useEffect(() => {
-    orderService.getHomepageCMS().then((sections) => {
-      const hero = sections.find((s: any) => s.sectionKey === 'hero');
-      if (hero) {
-        if (hero.title) setHeroHeading(hero.title);
-        if (hero.subtitle) setHeroSubtitle(hero.subtitle);
-        if (hero.imageUrl) setHeroImageUrl(hero.imageUrl);
-      }
-    }).catch(() => {});
-  }, []);
+  // Form State for active section
+  const [formData, setFormData] = useState<Record<string, any>>({});
 
-  const handleSaveHero = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await adminService.updateCMSSection('hero', {
-        title: heroHeading,
-        subtitle: heroSubtitle,
-        imageUrl: heroImageUrl,
-        buttonText: 'Shop Men,Shop Women',
-      });
-      queryClient.invalidateQueries({ queryKey: ['homepage-cms'] });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
-    } catch (err: any) {
-      alert(err.message || 'Failed to update CMS section');
+  // Fetch sections from database
+  const { data: dbSections = [], isLoading, isFetching, refetch } = useQuery({
+    queryKey: ['admin-cms-sections'],
+    queryFn: () => adminService.getCMSSections(),
+  });
+
+  // Merge DB sections with defaults
+  const sectionsMap = React.useMemo(() => {
+    const map: Record<string, any> = {};
+    DEFAULT_SECTIONS.forEach((def) => {
+      const found = dbSections.find((s: any) => s.sectionKey === def.sectionKey);
+      map[def.sectionKey] = {
+        sectionKey: def.sectionKey,
+        name: def.name,
+        title: found?.title || def.defaultTitle,
+        subtitle: found?.subtitle || def.defaultSubtitle,
+        content: found?.content || '',
+        imageUrl: found?.imageUrl || '',
+        linkUrl: found?.linkUrl || '/products',
+        buttonText: found?.buttonText || 'Explore Now',
+        isActive: found?.isActive !== false,
+        hasButton: def.hasButton,
+      };
+    });
+    return map;
+  }, [dbSections]);
+
+  // Sync active section to local form state on tab switch
+  React.useEffect(() => {
+    if (sectionsMap[activeTab]) {
+      setFormData(sectionsMap[activeTab]);
     }
+  }, [activeTab, sectionsMap]);
+
+  // Update Section Mutation
+  const saveMutation = useMutation({
+    mutationFn: ({ sectionKey, data }: { sectionKey: string; data: any }) =>
+      adminService.updateCMSSection(sectionKey, data),
+    onSuccess: (_, variables) => {
+      setSavedSuccessKey(variables.sectionKey);
+      setTimeout(() => setSavedSuccessKey(null), 2500);
+      queryClient.invalidateQueries({ queryKey: ['admin-cms-sections'] });
+    },
+  });
+
+  const handleFieldChange = (field: string, value: any) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveMutation.mutate({ sectionKey: activeTab, data: formData });
+  };
+
+  const currentSection = DEFAULT_SECTIONS.find((s) => s.sectionKey === activeTab);
+
   return (
-    <div className="space-y-6 max-w-3xl">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-100">Homepage CMS Manager</h1>
-        <p className="text-xs text-slate-400 mt-1">
-          Dynamically manage the storefront hero banner, titles, and promotional announcements without changing code.
-        </p>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2.5">
+            <Layout size={24} className="text-emerald-400" />
+            Homepage CMS & Content Configurator
+          </h1>
+          <p className="text-xs text-slate-400 mt-1">
+            Customize storefront copy, call-to-actions, marketing banners, and section visibility.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="p-2 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 rounded-xl transition-colors disabled:opacity-50"
+            title="Refresh CMS"
+          >
+            <RefreshCw size={14} className={isFetching ? 'animate-spin text-emerald-400' : ''} />
+          </button>
+        </div>
       </div>
 
-      {saved && (
-        <div className="p-3 bg-emerald-950 border border-emerald-800 text-xs font-semibold text-emerald-300 rounded-xl flex items-center gap-1.5">
-          <CheckCircle2 size={16} /> Homepage content updated successfully!
+      {/* Main Grid: Sidebar list + Active Editor Form */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Sections Navigation List */}
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3 space-y-1.5 h-fit">
+          <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider px-3 py-2 block">
+            Homepage Sections
+          </span>
+
+          {DEFAULT_SECTIONS.map((sec) => {
+            const isActiveTab = activeTab === sec.sectionKey;
+            const currentData = sectionsMap[sec.sectionKey];
+            const isLive = currentData?.isActive !== false;
+
+            return (
+              <button
+                key={sec.sectionKey}
+                onClick={() => setActiveTab(sec.sectionKey)}
+                className={`w-full text-left px-3.5 py-3 rounded-xl transition-all flex items-center justify-between ${
+                  isActiveTab
+                    ? 'bg-emerald-950/60 border border-emerald-800/80 text-emerald-300 shadow-sm'
+                    : 'text-slate-300 hover:bg-slate-800/60 hover:text-slate-100'
+                }`}
+              >
+                <div>
+                  <p className="text-xs font-semibold">{sec.name}</p>
+                  <span className="text-[10px] font-mono text-slate-400 block mt-0.5">
+                    key: {sec.sectionKey}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      isLive ? 'bg-emerald-400' : 'bg-slate-600'
+                    }`}
+                    title={isLive ? 'Section is Live' : 'Section is Hidden'}
+                  />
+                </div>
+              </button>
+            );
+          })}
         </div>
-      )}
 
-      {/* Hero Section Config */}
-      <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
-        <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-          <Sliders size={16} className="text-emerald-400" /> Hero Section Settings
-        </h3>
+        {/* Section Editor Form */}
+        <div className="lg:col-span-2 bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-xl text-slate-100 space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+            <div>
+              <h2 className="text-base font-bold text-slate-100">{currentSection?.name}</h2>
+              <span className="text-xs text-slate-400 font-mono">sectionKey: {activeTab}</span>
+            </div>
 
-        <form onSubmit={handleSaveHero} className="space-y-4 text-xs">
-          <div>
-            <label className="block text-slate-400 font-semibold mb-1">Main Heading</label>
-            <input
-              type="text"
-              value={heroHeading}
-              onChange={(e) => setHeroHeading(e.target.value)}
-              className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-100"
-            />
-          </div>
-
-          <div>
-            <label className="block text-slate-400 font-semibold mb-1">Supporting Subtitle</label>
-            <input
-              type="text"
-              value={heroSubtitle}
-              onChange={(e) => setHeroSubtitle(e.target.value)}
-              className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-100"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-slate-400 font-semibold">Hero Banner Image (Upload or URL)</label>
-            <div className="flex gap-2">
-              <input
-                type="url"
-                value={heroImageUrl}
-                onChange={(e) => setHeroImageUrl(e.target.value)}
-                placeholder="https://... or upload image"
-                className="flex-1 p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-100"
-              />
-              <label className={`px-4 py-2.5 ${isUploading ? 'bg-slate-700 cursor-not-allowed' : 'bg-slate-800 hover:bg-slate-700 cursor-pointer'} text-slate-200 rounded-xl font-semibold flex items-center gap-1.5 shrink-0 transition-colors`}>
-                <ImageIcon size={14} className={isUploading ? 'animate-pulse' : ''} />
-                <span>{isUploading ? 'Uploading...' : 'Upload'}</span>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 cursor-pointer bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
                 <input
-                  type="file"
-                  accept="image/*"
-                  disabled={isUploading}
-                  className="hidden"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setIsUploading(true);
-                      try {
-                        const res = await adminService.uploadImage(file, 'skincare-cms');
-                        if (res?.url) {
-                          setHeroImageUrl(res.url);
-                        }
-                      } catch (err: any) {
-                        alert(err.message || 'Image upload failed');
-                      } finally {
-                        setIsUploading(false);
-                      }
-                    }
-                  }}
+                  type="checkbox"
+                  checked={formData.isActive !== false}
+                  onChange={(e) => handleFieldChange('isActive', e.target.checked)}
+                  className="rounded bg-slate-800 border-slate-700 text-emerald-600 focus:ring-emerald-500"
                 />
+                <span className="text-xs font-semibold text-slate-300">
+                  {formData.isActive !== false ? 'Live on Store' : 'Hidden'}
+                </span>
               </label>
             </div>
-            {heroImageUrl && (
-              <div className="mt-2 rounded-xl overflow-hidden border border-slate-800 max-w-sm">
-                <img src={heroImageUrl} alt="Hero Banner Preview" className="w-full h-36 object-cover" />
-              </div>
-            )}
           </div>
 
-          <button
-            type="submit"
-            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold flex items-center gap-1.5 shadow"
-          >
-            <Save size={14} /> Update Hero Content
-          </button>
-        </form>
+          <form onSubmit={handleSave} className="space-y-4 text-xs">
+            {/* Section Headline */}
+            <div>
+              <label className="text-[11px] font-semibold text-slate-300 block mb-1">
+                Main Headline Title *
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.title || ''}
+                onChange={(e) => handleFieldChange('title', e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3.5 py-2.5 rounded-xl focus:outline-none focus:border-emerald-500 text-sm font-semibold"
+              />
+            </div>
+
+            {/* Subtitle / Description */}
+            <div>
+              <label className="text-[11px] font-semibold text-slate-300 block mb-1">
+                Subtitle / Supportive Copy
+              </label>
+              <textarea
+                rows={2}
+                value={formData.subtitle || ''}
+                onChange={(e) => handleFieldChange('subtitle', e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3.5 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            {/* CTA Button Settings (if applicable) */}
+            {currentSection?.hasButton && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-slate-950/60 border border-slate-800 rounded-2xl">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">
+                    CTA Button Label
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.buttonText || ''}
+                    onChange={(e) => handleFieldChange('buttonText', e.target.value)}
+                    placeholder="e.g. Shop Best Sellers"
+                    className="w-full bg-slate-900 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">
+                    Destination URL / Path
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.linkUrl || ''}
+                    onChange={(e) => handleFieldChange('linkUrl', e.target.value)}
+                    placeholder="e.g. /products?sort=best_selling"
+                    className="w-full bg-slate-900 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Image / Graphic URL */}
+            <div>
+              <label className="text-[11px] font-semibold text-slate-300 block mb-1">
+                Background / Promotional Graphic URL
+              </label>
+              <input
+                type="text"
+                value={formData.imageUrl || ''}
+                onChange={(e) => handleFieldChange('imageUrl', e.target.value)}
+                placeholder="https://images.unsplash.com/... or Cloudinary URL"
+                className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
+              />
+              {formData.imageUrl && (
+                <div className="mt-2 rounded-xl overflow-hidden border border-slate-800 h-28 w-full max-w-sm bg-slate-950">
+                  <img
+                    src={formData.imageUrl}
+                    alt="Section banner preview"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Save Button */}
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+              <button
+                type="submit"
+                disabled={saveMutation.isPending}
+                className={`px-5 py-2.5 rounded-xl font-semibold text-xs flex items-center gap-1.5 shadow-sm transition-all ${
+                  savedSuccessKey === activeTab
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50'
+                }`}
+              >
+                {savedSuccessKey === activeTab ? (
+                  <>
+                    <Check size={14} />
+                    <span>Saved to Storefront</span>
+                  </>
+                ) : (
+                  <>
+                    <Save size={14} />
+                    <span>{saveMutation.isPending ? 'Publishing...' : 'Publish Section Changes'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
 };
-

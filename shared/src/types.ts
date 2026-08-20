@@ -268,6 +268,14 @@ export interface ApiResponse<T = any> {
     limit?: number;
     total?: number;
     totalPages?: number;
+    countsByStatus?: Record<string, number>;
+  };
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    countsByStatus?: Record<string, number>;
   };
 }
 

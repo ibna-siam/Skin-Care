@@ -515,3 +515,36 @@ model ProductView {
   @@index([userId])
   @@index([productId])
 }
+
+model AutomationWorkflow {
+  id             String          @id @default(uuid())
+  name           String
+  description    String?
+  triggerType    String          @unique // ABANDONED_CART, REVIEW_REQUEST, BACK_IN_STOCK, PRICE_DROP, LOW_STOCK, RE_ENGAGEMENT, WELCOME
+  isActive       Boolean         @default(true)
+  config         Json?
+  executionCount Int             @default(0)
+  lastRunAt      DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  logs           AutomationLog[]
+}
+
+model AutomationLog {
+  id          String              @id @default(uuid())
+  workflowId  String?
+  workflow    AutomationWorkflow? @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  triggerType String
+  targetEmail String?
+  status      String              // SUCCESS, SKIPPED, FAILED
+  summary     String
+  details     String?
+  createdAt   DateTime            @default(now())
+
+  @@index([workflowId])
+  @@index([triggerType])
+  @@index([status])
+  @@index([createdAt])
+}
+
