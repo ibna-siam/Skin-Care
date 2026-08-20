@@ -342,6 +342,26 @@ export const AdminBanners: React.FC = () => {
                   </label>
                 </div>
 
+                {/* Quick Sample Presets */}
+                <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                  <span className="text-[10px] text-slate-400">Sample presets:</span>
+                  {[
+                    { label: 'Hero Sunscreen', url: 'https://images.unsplash.com/photo-1576426863848-c21f53c60b19?q=80&w=1600&auto=format&fit=crop' },
+                    { label: 'Glass Skin Serums', url: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=1600&auto=format&fit=crop' },
+                    { label: 'Hydration Fest', url: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?q=80&w=1600&auto=format&fit=crop' },
+                    { label: 'Ceramide Glow', url: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?q=80&w=1600&auto=format&fit=crop' },
+                  ].map((s) => (
+                    <button
+                      key={s.label}
+                      type="button"
+                      onClick={() => setImageUrl(s.url)}
+                      className="px-2 py-0.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[10px] text-emerald-400 font-mono transition-colors"
+                    >
+                      + {s.label}
+                    </button>
+                  ))}
+                </div>
+
                 {imageUrl && (
                   <div className="mt-2 rounded-xl overflow-hidden border border-slate-800 h-24 bg-slate-950">
                     <img src={imageUrl} alt="Banner preview" className="w-full h-full object-cover" />

@@ -44,7 +44,7 @@ export const Shop: React.FC = () => {
   });
 
   // Fetch products from backend API based on active filters
-  const { data: productsData, isLoading } = useQuery({
+  const { data: productsData, isLoading, isError, refetch } = useQuery({
     queryKey: ['products', categoryParam, brandParam, skinTypeParam, skinConcernParam, genderParam, sortParam, searchParam, minPriceParam, maxPriceParam],
     queryFn: () =>
       productService.getProducts({
@@ -369,6 +369,22 @@ export const Shop: React.FC = () => {
                   <div className="h-10 bg-cream-200 rounded-xl" />
                 </div>
               ))}
+            </div>
+          ) : isError ? (
+            <div className="bg-white rounded-3xl border border-rose-200 p-12 text-center space-y-4">
+              <div className="w-16 h-16 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mx-auto">
+                <Filter size={28} />
+              </div>
+              <h3 className="font-serif text-xl font-bold text-charcoal-900">Unable to load skincare catalog</h3>
+              <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                We encountered a temporary connection issue reaching the product database.
+              </p>
+              <button
+                onClick={() => refetch()}
+                className="px-6 py-2.5 bg-brand-800 text-white rounded-xl text-xs font-semibold hover:bg-brand-900 shadow-sm"
+              >
+                Try Again
+              </button>
             </div>
           ) : products.length === 0 ? (
             <div className="bg-white rounded-3xl border border-cream-300 p-12 text-center space-y-4">

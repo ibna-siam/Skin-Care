@@ -1626,3 +1626,546 @@ export async function adminSendBroadcastNotification(req: Request, res: Response
     next(error);
   }
 }
+
+// ----------------- CATEGORIES MANAGEMENT -----------------
+
+export async function adminGetCategories(req: Request, res: Response, next: NextFunction) {
+  try {
+    const categories = await prisma.category.findMany({
+      orderBy: { sortOrder: 'asc' },
+      include: {
+        parent: { select: { id: true, name: true, slug: true } },
+        children: { select: { id: true, name: true, slug: true } },
+        _count: { select: { products: true } },
+      },
+    });
+
+    const formatted = categories.map((c) => ({
+      ...c,
+      productCount: c._count.products,
+    }));
+
+    return sendSuccess(res, formatted);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminCreateCategory(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { name, slug, description, imageUrl, parentId, sortOrder, isFeatured } = req.body;
+    if (!name || !slug) return sendError(res, 'Category name and slug are required', 400);
+
+    const category = await prisma.category.create({
+      data: {
+        name: name.trim(),
+        slug: slug.trim().toLowerCase(),
+        description: description?.trim() || null,
+        imageUrl: imageUrl || null,
+        parentId: parentId || null,
+        sortOrder: sortOrder ? parseInt(sortOrder, 10) : 0,
+        isFeatured: isFeatured === true,
+      },
+      include: { parent: true },
+    });
+
+    return sendSuccess(res, category, 'Category created', 201);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminUpdateCategory(req: Request, res: Response, next: NextFunction) {
+  try {
+    const id = req.params.id as string;
+    const { name, slug, description, imageUrl, parentId, sortOrder, isFeatured } = req.body;
+
+    const category = await prisma.category.update({
+      where: { id },
+      data: {
+        name: name?.trim(),
+        slug: slug?.trim().toLowerCase(),
+        description: description !== undefined ? description?.trim() || null : undefined,
+        imageUrl: imageUrl !== undefined ? imageUrl || null : undefined,
+        parentId: parentId !== undefined ? parentId || null : undefined,
+        sortOrder: sortOrder !== undefined ? parseInt(sortOrder, 10) : undefined,
+        isFeatured: isFeatured !== undefined ? isFeatured : undefined,
+      },
+      include: { parent: true },
+    });
+
+    return sendSuccess(res, category, 'Category updated');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminDeleteCategory(req: Request, res: Response, next: NextFunction) {
+  try {
+    const id = req.params.id as string;
+    const productCount = await prisma.product.count({ where: { categoryId: id } });
+    if (productCount > 0) {
+      return sendError(res, `Cannot delete category with ${productCount} active products. Reassign or remove products first.`, 400);
+    }
+
+    await prisma.category.delete({ where: { id } });
+    return sendSuccess(res, null, 'Category deleted');
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ----------------- BRANDS MANAGEMENT -----------------
+
+export async function adminGetBrands(req: Request, res: Response, next: NextFunction) {
+  try {
+    const brands = await prisma.brand.findMany({
+      orderBy: { name: 'asc' },
+      include: {
+        _count: { select: { products: true } },
+      },
+    });
+
+    const formatted = brands.map((b) => ({
+      ...b,
+      productCount: b._count.products,
+    }));
+
+    return sendSuccess(res, formatted);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminCreateBrand(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { name, slug, description, logoUrl, country, website, isFeatured } = req.body;
+    if (!name || !slug) return sendError(res, 'Brand name and slug are required', 400);
+
+    const brand = await prisma.brand.create({
+      data: {
+        name: name.trim(),
+        slug: slug.trim().toLowerCase(),
+        description: description?.trim() || null,
+        logoUrl: logoUrl || null,
+        country: country?.trim() || null,
+        website: website?.trim() || null,
+        isFeatured: isFeatured === true,
+      },
+    });
+
+    return sendSuccess(res, brand, 'Brand created', 201);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminUpdateBrand(req: Request, res: Response, next: NextFunction) {
+  try {
+    const id = req.params.id as string;
+    const { name, slug, description, logoUrl, country, website, isFeatured } = req.body;
+
+    const brand = await prisma.brand.update({
+      where: { id },
+      data: {
+        name: name?.trim(),
+        slug: slug?.trim().toLowerCase(),
+        description: description !== undefined ? description?.trim() || null : undefined,
+        logoUrl: logoUrl !== undefined ? logoUrl || null : undefined,
+        country: country !== undefined ? country?.trim() || null : undefined,
+        website: website !== undefined ? website?.trim() || null : undefined,
+        isFeatured: isFeatured !== undefined ? isFeatured : undefined,
+      },
+    });
+
+    return sendSuccess(res, brand, 'Brand updated');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminDeleteBrand(req: Request, res: Response, next: NextFunction) {
+  try {
+    const id = req.params.id as string;
+    const productCount = await prisma.product.count({ where: { brandId: id } });
+    if (productCount > 0) {
+      return sendError(res, `Cannot delete brand with ${productCount} active products. Reassign or remove products first.`, 400);
+    }
+
+    await prisma.brand.delete({ where: { id } });
+    return sendSuccess(res, null, 'Brand deleted');
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ----------------- MARKETING CAMPAIGNS -----------------
+
+export async function adminGetCampaigns(req: Request, res: Response, next: NextFunction) {
+  try {
+    const campaigns = await prisma.marketingCampaign.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+    return sendSuccess(res, campaigns);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminCreateCampaign(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { name, description, type, status, audience, subject, message, couponCode, imageUrl, startDate, endDate } = req.body;
+    if (!name || !message) return sendError(res, 'Campaign name and message are required', 400);
+
+    const campaign = await prisma.marketingCampaign.create({
+      data: {
+        name: name.trim(),
+        description: description?.trim() || null,
+        type: type || 'PROMOTION',
+        status: status || 'DRAFT',
+        audience: audience || 'ALL',
+        subject: subject?.trim() || null,
+        message: message.trim(),
+        couponCode: couponCode?.trim() || null,
+        imageUrl: imageUrl || null,
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null,
+      },
+    });
+
+    return sendSuccess(res, campaign, 'Campaign created', 201);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminUpdateCampaign(req: Request, res: Response, next: NextFunction) {
+  try {
+    const id = req.params.id as string;
+    const body = req.body;
+
+    const campaign = await prisma.marketingCampaign.update({
+      where: { id },
+      data: {
+        name: body.name?.trim(),
+        description: body.description !== undefined ? body.description?.trim() || null : undefined,
+        type: body.type,
+        status: body.status,
+        audience: body.audience,
+        subject: body.subject !== undefined ? body.subject?.trim() || null : undefined,
+        message: body.message?.trim(),
+        couponCode: body.couponCode !== undefined ? body.couponCode?.trim() || null : undefined,
+        imageUrl: body.imageUrl !== undefined ? body.imageUrl || null : undefined,
+        startDate: body.startDate ? new Date(body.startDate) : undefined,
+        endDate: body.endDate ? new Date(body.endDate) : undefined,
+      },
+    });
+
+    return sendSuccess(res, campaign, 'Campaign updated');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminDeleteCampaign(req: Request, res: Response, next: NextFunction) {
+  try {
+    const id = req.params.id as string;
+    await prisma.marketingCampaign.delete({ where: { id } });
+    return sendSuccess(res, null, 'Campaign deleted');
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ----------------- NEWSLETTER SUBSCRIBERS -----------------
+
+export async function adminGetNewsletters(req: Request, res: Response, next: NextFunction) {
+  try {
+    const page = parseInt(req.query.page as string || '1', 10);
+    const limit = parseInt(req.query.limit as string || '50', 10);
+    const search = (req.query.search as string)?.trim();
+
+    const where: any = {};
+    if (search) {
+      where.email = { contains: search };
+    }
+
+    const [total, subscribers] = await Promise.all([
+      prisma.newsletterSubscriber.count({ where }),
+      prisma.newsletterSubscriber.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { subscribedAt: 'desc' },
+      }),
+    ]);
+
+    return sendSuccess(res, subscribers, 'Subscribers retrieved', 200, {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminExportNewsletters(req: Request, res: Response, next: NextFunction) {
+  try {
+    const subscribers = await prisma.newsletterSubscriber.findMany({
+      orderBy: { subscribedAt: 'desc' },
+    });
+
+    const headers = 'ID,Email,SubscribedAt\n';
+    const rows = subscribers
+      .map((s) => `"${s.id}","${s.email}","${s.subscribedAt.toISOString()}"`)
+      .join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=subscribers_${Date.now()}.csv`);
+    return res.status(200).send(headers + rows);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminDeleteNewsletter(req: Request, res: Response, next: NextFunction) {
+  try {
+    const id = req.params.id as string;
+    await prisma.newsletterSubscriber.delete({ where: { id } });
+    return sendSuccess(res, null, 'Subscriber removed');
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ----------------- SKIN GUIDE QUIZ MANAGEMENT -----------------
+
+export async function adminGetSkinQuiz(req: Request, res: Response, next: NextFunction) {
+  try {
+    const questions = await prisma.skinQuizQuestion.findMany({
+      orderBy: { sortOrder: 'asc' },
+      include: {
+        options: { orderBy: { sortOrder: 'asc' } },
+      },
+    });
+    return sendSuccess(res, questions);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminCreateSkinQuizQuestion(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { question, subtitle, category, sortOrder, options } = req.body;
+    if (!question || !category) return sendError(res, 'Question and category are required', 400);
+
+    const created = await prisma.skinQuizQuestion.create({
+      data: {
+        question: question.trim(),
+        subtitle: subtitle?.trim() || null,
+        category,
+        sortOrder: sortOrder ? parseInt(sortOrder, 10) : 0,
+        options: options?.length
+          ? {
+              create: options.map((opt: any, idx: number) => ({
+                optionText: opt.optionText.trim(),
+                valueKey: opt.valueKey.trim().toLowerCase(),
+                sortOrder: opt.sortOrder ?? idx,
+              })),
+            }
+          : undefined,
+      },
+      include: { options: true },
+    });
+
+    return sendSuccess(res, created, 'Quiz question created', 201);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminUpdateSkinQuizQuestion(req: Request, res: Response, next: NextFunction) {
+  try {
+    const id = req.params.id as string;
+    const { question, subtitle, category, sortOrder } = req.body;
+
+    const updated = await prisma.skinQuizQuestion.update({
+      where: { id },
+      data: {
+        question: question?.trim(),
+        subtitle: subtitle !== undefined ? subtitle?.trim() || null : undefined,
+        category,
+        sortOrder: sortOrder !== undefined ? parseInt(sortOrder, 10) : undefined,
+      },
+      include: { options: true },
+    });
+
+    return sendSuccess(res, updated, 'Quiz question updated');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminDeleteSkinQuizQuestion(req: Request, res: Response, next: NextFunction) {
+  try {
+    const id = req.params.id as string;
+    await prisma.skinQuizQuestion.delete({ where: { id } });
+    return sendSuccess(res, null, 'Quiz question deleted');
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ----------------- ADVANCED ANALYTICS ENGINE -----------------
+
+export async function adminGetAnalyticsOverview(req: Request, res: Response, next: NextFunction) {
+  try {
+    const days = parseInt(req.query.days as string || '30', 10);
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const [orders, productsCount, customersCount, reviews] = await Promise.all([
+      prisma.order.findMany({
+        where: { createdAt: { gte: startDate } },
+        select: {
+          id: true,
+          totalAmount: true,
+          paymentStatus: true,
+          paymentMethod: true,
+          orderStatus: true,
+          createdAt: true,
+        },
+      }),
+      prisma.product.count({ where: { status: 'ACTIVE' } }),
+      prisma.user.count({ where: { role: 'CUSTOMER' } }),
+      prisma.review.findMany({
+        where: { createdAt: { gte: startDate } },
+        select: { rating: true },
+      }),
+    ]);
+
+    const totalRevenue = orders
+      .filter((o) => o.paymentStatus === 'PAID')
+      .reduce((sum, o) => sum + o.totalAmount, 0);
+
+    const totalOrders = orders.length;
+    const aov = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    const avgRating = reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 5.0;
+
+    // Payment methods breakdown
+    const paymentBreakdown: Record<string, number> = {};
+    orders.forEach((o) => {
+      paymentBreakdown[o.paymentMethod] = (paymentBreakdown[o.paymentMethod] || 0) + 1;
+    });
+
+    // Daily revenue distribution
+    const dailyMap: Record<string, { revenue: number; orders: number }> = {};
+    orders.forEach((o) => {
+      const day = o.createdAt.toISOString().split('T')[0];
+      if (!dailyMap[day]) dailyMap[day] = { revenue: 0, orders: 0 };
+      if (o.paymentStatus === 'PAID') dailyMap[day].revenue += o.totalAmount;
+      dailyMap[day].orders += 1;
+    });
+
+    const timeline = Object.entries(dailyMap)
+      .map(([date, val]) => ({ date, ...val }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    return sendSuccess(res, {
+      totalRevenue,
+      totalOrders,
+      aov,
+      productsCount,
+      customersCount,
+      avgRating,
+      paymentBreakdown,
+      timeline,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ----------------- OPERATIONS & SETTINGS -----------------
+
+export async function adminGetStoreSettings(req: Request, res: Response, next: NextFunction) {
+  try {
+    const settings = await prisma.storeSetting.findMany({
+      orderBy: { group: 'asc' },
+    });
+    return sendSuccess(res, settings);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminUpdateStoreSetting(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { key, value, group } = req.body;
+    if (!key || value === undefined) return sendError(res, 'Setting key and value are required', 400);
+
+    const setting = await prisma.storeSetting.upsert({
+      where: { key },
+      update: { value: String(value), group: group || 'GENERAL' },
+      create: { key, value: String(value), group: group || 'GENERAL' },
+    });
+
+    return sendSuccess(res, setting, 'Setting updated');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminGetActivityLogs(req: Request, res: Response, next: NextFunction) {
+  try {
+    const logs = await prisma.activityLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+    return sendSuccess(res, logs);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminGetUsers(req: Request, res: Response, next: NextFunction) {
+  try {
+    const users = await prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+    return sendSuccess(res, users);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminUpdateUserRole(req: Request, res: Response, next: NextFunction) {
+  try {
+    const id = req.params.id as string;
+    const { role, isActive } = req.body;
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: {
+        role: role || undefined,
+        isActive: isActive !== undefined ? isActive : undefined,
+      },
+      select: { id: true, name: true, email: true, role: true, isActive: true },
+    });
+
+    return sendSuccess(res, user, 'User updated');
+  } catch (error) {
+    next(error);
+  }
+}
+

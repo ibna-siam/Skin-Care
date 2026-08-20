@@ -30,8 +30,8 @@ export const AdminLayout: React.FC = () => {
     <div
       className={`min-h-screen font-sans flex transition-colors duration-200 ${
         resolvedTheme === 'light'
-          ? 'bg-slate-100 text-slate-900'
-          : 'bg-slate-950 text-slate-100'
+          ? 'admin-theme-light bg-slate-100 text-slate-900'
+          : 'admin-theme-dark bg-slate-950 text-slate-100'
       }`}
     >
       {/* Enterprise Sidebar */}

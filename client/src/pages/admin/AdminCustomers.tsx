@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { adminService } from '../../services/admin.service';
 import { AdminCustomerDetailDrawer } from '../../components/admin/AdminCustomerDetailDrawer';
 import {
@@ -23,6 +23,8 @@ import {
   TrendingUp,
   Heart,
   ShoppingBag,
+  Target,
+  Megaphone,
 } from 'lucide-react';
 import { formatBDT } from '@skincare/shared';
 
@@ -36,8 +38,12 @@ const SEGMENT_TABS = [
 ];
 
 export const AdminCustomers: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeSegment = searchParams.get('segment') || 'ALL';
+
+  const isSegmentsRoute = location.pathname.includes('/segments');
+  const activeSegment = searchParams.get('segment') || (isSegmentsRoute ? 'VIP' : 'ALL');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSkinType, setSelectedSkinType] = useState('ALL');
@@ -137,6 +143,33 @@ export const AdminCustomers: React.FC = () => {
         </div>
       </div>
 
+      {/* Navigation Sub-Tabs */}
+      <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+        <button
+          onClick={() => navigate('/admin/customers')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+            !isSegmentsRoute
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <Users size={14} />
+          <span>All Customers Registry</span>
+        </button>
+
+        <button
+          onClick={() => navigate('/admin/customers/segments')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+            isSegmentsRoute
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <UserCheck size={14} />
+          <span>RFM Loyalty Segments Hub</span>
+        </button>
+      </div>
+
       {/* CRM KPI Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl">
@@ -174,9 +207,64 @@ export const AdminCustomers: React.FC = () => {
             <Crown size={16} className="text-amber-400" />
           </div>
           <p className="text-2xl font-bold text-amber-400 mt-2">{segmentCounts.VIP || 0}</p>
-          <span className="text-[11px] text-amber-400/80">&gt; ৳10,000 lifetime spend</span>
+          <span className="text-[11px] text-amber-400/80">Over ৳10,000 lifetime spend</span>
         </div>
       </div>
+
+      {/* RFM Dynamic Segment Strategy Cards when on /segments route */}
+      {isSegmentsRoute && (
+        <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                <Target size={16} className="text-emerald-400" />
+                Customer RFM Segmentation Criteria & Action Matrix
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">Click any segment card to instantly view and filter matching customer profiles.</p>
+            </div>
+            <button
+              onClick={() => navigate('/admin/campaigns')}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-300 rounded-xl text-xs font-semibold transition-colors"
+            >
+              <Megaphone size={13} />
+              <span>Launch Cohort Campaign</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-2">
+            {[
+              { key: 'VIP', label: 'VIP Spenders', rule: 'Spend > ৳10k', count: segmentCounts.VIP || 0, icon: Crown, color: 'text-amber-400 border-amber-500/30 bg-amber-500/10' },
+              { key: 'REPEAT', label: 'Repeat Buyers', rule: '2+ Orders', count: segmentCounts.REPEAT || 0, icon: Repeat, color: 'text-purple-400 border-purple-500/30 bg-purple-500/10' },
+              { key: 'NEW', label: 'New Members', rule: '< 30 Days Old', count: segmentCounts.NEW || 0, icon: Sparkles, color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' },
+              { key: 'INACTIVE', label: 'Inactive (60d+)', rule: 'No recent order', count: segmentCounts.INACTIVE || 0, icon: UserX, color: 'text-rose-400 border-rose-500/30 bg-rose-500/10' },
+              { key: 'PROSPECT', label: 'Prospects', rule: '0 Orders', count: segmentCounts.PROSPECT || 0, icon: UserCheck, color: 'text-blue-400 border-blue-500/30 bg-blue-500/10' },
+            ].map((seg) => {
+              const Icon = seg.icon;
+              const isSelected = activeSegment === seg.key;
+              return (
+                <button
+                  key={seg.key}
+                  onClick={() => handleSegmentChange(seg.key)}
+                  className={`p-3.5 rounded-2xl border text-left transition-all ${
+                    isSelected
+                      ? 'bg-slate-800 border-emerald-500 shadow-md ring-1 ring-emerald-500/50'
+                      : 'bg-slate-950/70 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`p-1.5 rounded-lg border ${seg.color}`}>
+                      <Icon size={14} />
+                    </span>
+                    <span className="text-base font-bold font-mono text-slate-100">{seg.count}</span>
+                  </div>
+                  <p className="text-xs font-bold text-slate-200">{seg.label}</p>
+                  <span className="text-[10px] font-mono text-slate-400">{seg.rule}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* RFM Dynamic Segment Tabs */}
       <div className="flex items-center gap-1 overflow-x-auto pb-2 border-b border-slate-800/80 custom-scrollbar">

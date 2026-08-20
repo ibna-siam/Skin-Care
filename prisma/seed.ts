@@ -1,10 +1,27 @@
-import { prisma } from '../lib/prisma.js';
+import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pg from 'pg';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+const connectionString = process.env.DATABASE_URL;
+const pool = new pg.Pool({ connectionString });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log('🌱 Seeding Skincare E-Commerce Database...');
 
   // 1. Clean existing data
+  await prisma.banner.deleteMany();
   await prisma.reviewImage.deleteMany();
   await prisma.review.deleteMany();
   await prisma.orderTimeline.deleteMany();
@@ -72,17 +89,89 @@ async function main() {
 
   console.log('👤 Admin and Demo Customer created');
 
-  // 3. Brands
+  // 3. Brands with Real Logos
   const brandsData = [
-    { name: 'CeraVe', slug: 'cerave', country: 'United States', isFeatured: true, description: 'Dermatologist-developed skincare formulated with 3 essential ceramides.' },
-    { name: 'The Ordinary', slug: 'the-ordinary', country: 'Canada', isFeatured: true, description: 'Clinical formulations with integrity, high-potency single ingredient serums.' },
-    { name: 'Minimalist', slug: 'minimalist', country: 'India', isFeatured: true, description: 'Transparent, active-rich skincare powered by science.' },
-    { name: 'Neutrogena', slug: 'neutrogena', country: 'United States', isFeatured: true, description: 'Dermatologist-recommended skincare for clear, healthy skin.' },
-    { name: 'COSRX', slug: 'cosrx', country: 'South Korea', isFeatured: true, description: 'Korean skincare solutions with snail mucin and gentle exfoliants.' },
-    { name: 'WOW Skin Science', slug: 'wow-skin-science', country: 'India', isFeatured: true, description: 'Nature-infused skincare with aloe vera, apple cider vinegar, and tea tree.' },
-    { name: 'La Roche-Posay', slug: 'la-roche-posay', country: 'France', isFeatured: true, description: 'Thermal spring water skincare recommended for sensitive skin.' },
-    { name: 'Beauty of Joseon', slug: 'beauty-of-joseon', country: 'South Korea', isFeatured: true, description: 'Hanbang traditional herbal medicine modernized for glowing skin.' },
-    { name: 'Cetaphil', slug: 'cetaphil', country: 'United States', isFeatured: true, description: 'Gentle, pH-balanced cleansers and moisturizers for all skin types.' },
+    {
+      name: 'CeraVe',
+      slug: 'cerave',
+      country: 'United States',
+      isFeatured: true,
+      logoUrl: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?q=80&w=300&auto=format&fit=crop',
+      website: 'https://www.cerave.com',
+      description: 'Dermatologist-developed skincare formulated with 3 essential ceramides.',
+    },
+    {
+      name: 'The Ordinary',
+      slug: 'the-ordinary',
+      country: 'Canada',
+      isFeatured: true,
+      logoUrl: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=300&auto=format&fit=crop',
+      website: 'https://theordinary.com',
+      description: 'Clinical formulations with integrity, high-potency single ingredient serums.',
+    },
+    {
+      name: 'Minimalist',
+      slug: 'minimalist',
+      country: 'India',
+      isFeatured: true,
+      logoUrl: 'https://images.unsplash.com/photo-1608248597359-00976156e520?q=80&w=300&auto=format&fit=crop',
+      website: 'https://beminimalist.co',
+      description: 'Transparent, active-rich skincare powered by science.',
+    },
+    {
+      name: 'Neutrogena',
+      slug: 'neutrogena',
+      country: 'United States',
+      isFeatured: true,
+      logoUrl: 'https://images.unsplash.com/photo-1576426863848-c21f53c60b19?q=80&w=300&auto=format&fit=crop',
+      website: 'https://www.neutrogena.com',
+      description: 'Dermatologist-recommended skincare for clear, healthy skin.',
+    },
+    {
+      name: 'COSRX',
+      slug: 'cosrx',
+      country: 'South Korea',
+      isFeatured: true,
+      logoUrl: 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?q=80&w=300&auto=format&fit=crop',
+      website: 'https://www.cosrx.com',
+      description: 'Korean skincare solutions with snail mucin and gentle exfoliants.',
+    },
+    {
+      name: 'WOW Skin Science',
+      slug: 'wow-skin-science',
+      country: 'India',
+      isFeatured: true,
+      logoUrl: 'https://images.unsplash.com/photo-1567928815116-25f0a4f5b5f2?q=80&w=300&auto=format&fit=crop',
+      website: 'https://www.buywow.in',
+      description: 'Nature-infused skincare with aloe vera, apple cider vinegar, and tea tree.',
+    },
+    {
+      name: 'La Roche-Posay',
+      slug: 'la-roche-posay',
+      country: 'France',
+      isFeatured: true,
+      logoUrl: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=300&auto=format&fit=crop',
+      website: 'https://www.laroche-posay.us',
+      description: 'Thermal spring water skincare recommended for sensitive skin.',
+    },
+    {
+      name: 'Beauty of Joseon',
+      slug: 'beauty-of-joseon',
+      country: 'South Korea',
+      isFeatured: true,
+      logoUrl: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?q=80&w=300&auto=format&fit=crop',
+      website: 'https://beautyofjoseon.com',
+      description: 'Hanbang traditional herbal medicine modernized for glowing skin.',
+    },
+    {
+      name: 'Cetaphil',
+      slug: 'cetaphil',
+      country: 'United States',
+      isFeatured: true,
+      logoUrl: 'https://images.unsplash.com/photo-1556228722-d0b5b244719c?q=80&w=300&auto=format&fit=crop',
+      website: 'https://www.cetaphil.com',
+      description: 'Gentle, pH-balanced cleansers and moisturizers for all skin types.',
+    },
   ];
 
   const brandMap = new Map<string, string>();
@@ -91,16 +180,72 @@ async function main() {
     brandMap.set(b.slug, brand.id);
   }
 
-  // 4. Categories
+  // 4. Categories with Authentic Sample Images
   const categoriesData = [
-    { name: 'Cleansers', slug: 'cleansers', sortOrder: 1, isFeatured: true, description: 'Gentle face washes and foaming cleansers.' },
-    { name: 'Serums', slug: 'serums', sortOrder: 2, isFeatured: true, description: 'High potency active serums for brightening and anti-aging.' },
-    { name: 'Moisturizers', slug: 'moisturizers', sortOrder: 3, isFeatured: true, description: 'Hydrating creams, lotions, and barrier repair formulas.' },
-    { name: 'Sunscreen', slug: 'sunscreen', sortOrder: 4, isFeatured: true, description: 'Broad-spectrum UVA/UVB SPF 50+ sun protection.' },
-    { name: 'Toners', slug: 'toners', sortOrder: 5, isFeatured: true, description: 'Exfoliating and hydrating skin prep toners.' },
-    { name: 'Men Skincare', slug: 'men', sortOrder: 6, isFeatured: true, description: 'Formulated specifically for men skin texture and beard care.' },
-    { name: 'Face Masks', slug: 'face-masks', sortOrder: 7, isFeatured: false, description: 'Sheet masks and clay clarifying treatments.' },
-    { name: 'Body Care', slug: 'body-care', sortOrder: 8, isFeatured: false, description: 'Nourishing body lotions and soothing gels.' },
+    {
+      name: 'Cleansers',
+      slug: 'cleansers',
+      sortOrder: 1,
+      isFeatured: true,
+      imageUrl: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?q=80&w=600&auto=format&fit=crop',
+      description: 'Gentle face washes, foaming gel cleansers, and oil-free acne washes.',
+    },
+    {
+      name: 'Serums',
+      slug: 'serums',
+      sortOrder: 2,
+      isFeatured: true,
+      imageUrl: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=600&auto=format&fit=crop',
+      description: 'High potency active serums for brightening, dark spots, and anti-aging.',
+    },
+    {
+      name: 'Moisturizers',
+      slug: 'moisturizers',
+      sortOrder: 3,
+      isFeatured: true,
+      imageUrl: 'https://images.unsplash.com/photo-1556228722-d0b5b244719c?q=80&w=600&auto=format&fit=crop',
+      description: 'Hydrating barrier repair creams, lotions, and soothing gels.',
+    },
+    {
+      name: 'Sunscreen',
+      slug: 'sunscreen',
+      sortOrder: 4,
+      isFeatured: true,
+      imageUrl: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?q=80&w=600&auto=format&fit=crop',
+      description: 'Broad-spectrum UVA/UVB SPF 50+ PA++++ sun protection with no white cast.',
+    },
+    {
+      name: 'Toners',
+      slug: 'toners',
+      sortOrder: 5,
+      isFeatured: true,
+      imageUrl: 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?q=80&w=600&auto=format&fit=crop',
+      description: 'Exfoliating AHA/BHA and hydrating prep toners for glass skin.',
+    },
+    {
+      name: 'Men Skincare',
+      slug: 'men',
+      sortOrder: 6,
+      isFeatured: true,
+      imageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=600&auto=format&fit=crop',
+      description: 'Formulated specifically for men skin texture, post-shave care, and oil control.',
+    },
+    {
+      name: 'Face Masks',
+      slug: 'face-masks',
+      sortOrder: 7,
+      isFeatured: false,
+      imageUrl: 'https://images.unsplash.com/photo-1567928815116-25f0a4f5b5f2?q=80&w=600&auto=format&fit=crop',
+      description: 'Hydrating Korean sheet masks and clarifying clay pore treatments.',
+    },
+    {
+      name: 'Body Care',
+      slug: 'body-care',
+      sortOrder: 8,
+      isFeatured: false,
+      imageUrl: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=600&auto=format&fit=crop',
+      description: 'Nourishing ceramide body lotions and calming post-sun body care.',
+    },
   ];
 
   const categoryMap = new Map<string, string>();
@@ -673,6 +818,42 @@ async function main() {
       ],
     });
   }
+
+  // 8. Banners with High-Quality Skincare Imagery
+  await prisma.banner.createMany({
+    data: [
+      {
+        title: 'Original Skincare for Real Skin',
+        subtitle: '100% authentic dermatological solutions delivered across Bangladesh.',
+        imageUrl: 'https://images.unsplash.com/photo-1576426863848-c21f53c60b19?q=80&w=1600&auto=format&fit=crop',
+        linkUrl: '/shop',
+        buttonText: 'Explore Collection',
+        position: 'HERO',
+        isActive: true,
+        sortOrder: 1,
+      },
+      {
+        title: 'Korean Glass Skin Routine',
+        subtitle: 'Hydrating snail mucin, soothing centella, and antioxidant serums.',
+        imageUrl: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=1600&auto=format&fit=crop',
+        linkUrl: '/shop?category=serums',
+        buttonText: 'Shop Serums',
+        position: 'HERO',
+        isActive: true,
+        sortOrder: 2,
+      },
+      {
+        title: 'Summer Sun Protection Fest',
+        subtitle: 'UVA/UVB SPF 50+ broad-spectrum shields with zero greasy residue.',
+        imageUrl: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?q=80&w=1600&auto=format&fit=crop',
+        linkUrl: '/shop?category=sunscreen',
+        buttonText: 'Find Your SPF',
+        position: 'PROMO',
+        isActive: true,
+        sortOrder: 3,
+      },
+    ] as any,
+  });
 
   // 9. Homepage CMS Sections
   const cmsSections = [

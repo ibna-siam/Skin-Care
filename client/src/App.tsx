@@ -37,15 +37,23 @@ const TermsPage = lazy(() => import('./pages/StaticPages').then(m => ({ default:
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then(m => ({ default: m.AdminLayout })));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 const AdminProducts = lazy(() => import('./pages/admin/AdminProducts').then(m => ({ default: m.AdminProducts })));
+const AdminCategories = lazy(() => import('./pages/admin/AdminCategories').then(m => ({ default: m.AdminCategories })));
+const AdminBrands = lazy(() => import('./pages/admin/AdminBrands').then(m => ({ default: m.AdminBrands })));
 const AdminInventory = lazy(() => import('./pages/admin/AdminInventory').then(m => ({ default: m.AdminInventory })));
 const AdminOrders = lazy(() => import('./pages/admin/AdminOrders').then(m => ({ default: m.AdminOrders })));
 const AdminCustomers = lazy(() => import('./pages/admin/AdminCustomers').then(m => ({ default: m.AdminCustomers })));
 const AdminReviews = lazy(() => import('./pages/admin/AdminReviews').then(m => ({ default: m.AdminReviews })));
 const AdminCoupons = lazy(() => import('./pages/admin/AdminCoupons').then(m => ({ default: m.AdminCoupons })));
+const AdminCampaigns = lazy(() => import('./pages/admin/AdminCampaigns').then(m => ({ default: m.AdminCampaigns })));
 const AdminCMS = lazy(() => import('./pages/admin/AdminCMS').then(m => ({ default: m.AdminCMS })));
 const AdminBanners = lazy(() => import('./pages/admin/AdminBanners').then(m => ({ default: m.AdminBanners })));
 const AdminAutomations = lazy(() => import('./pages/admin/AdminAutomations').then(m => ({ default: m.AdminAutomations })));
 const AdminNotifications = lazy(() => import('./pages/admin/AdminNotifications').then(m => ({ default: m.AdminNotifications })));
+const AdminNewsletter = lazy(() => import('./pages/admin/AdminNewsletter').then(m => ({ default: m.AdminNewsletter })));
+const AdminSkinGuide = lazy(() => import('./pages/admin/AdminSkinGuide').then(m => ({ default: m.AdminSkinGuide })));
+const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics').then(m => ({ default: m.AdminAnalytics })));
+const AdminOperations = lazy(() => import('./pages/admin/AdminOperations').then(m => ({ default: m.AdminOperations })));
+const AdminSystem = lazy(() => import('./pages/admin/AdminSystem').then(m => ({ default: m.AdminSystem })));
 const AdminPlaceholderSection = lazy(() => import('./pages/admin/AdminPlaceholderSection').then(m => ({ default: m.AdminPlaceholderSection })));
 
 // QueryClient with 5-minute stale cache for blazing fast navigation
@@ -157,31 +165,35 @@ export const App: React.FC = () => {
         >
           <Route index element={<AdminDashboard />} />
           <Route path="products" element={<AdminProducts />} />
-          <Route path="categories" element={<AdminPlaceholderSection />} />
-          <Route path="brands" element={<AdminPlaceholderSection />} />
+          <Route path="categories" element={<AdminCategories />} />
+          <Route path="brands" element={<AdminBrands />} />
           <Route path="inventory" element={<AdminInventory />} />
           <Route path="orders" element={<AdminOrders />} />
           <Route path="customers" element={<AdminCustomers />} />
           <Route path="customers/segments" element={<AdminCustomers />} />
           <Route path="reviews" element={<AdminReviews />} />
           <Route path="coupons" element={<AdminCoupons />} />
-          <Route path="campaigns" element={<AdminCoupons />} />
+          <Route path="campaigns" element={<AdminCampaigns />} />
           <Route path="automations" element={<AdminAutomations />} />
           <Route path="notifications" element={<AdminNotifications />} />
           <Route path="cms" element={<AdminCMS />} />
           <Route path="banners" element={<AdminBanners />} />
-          <Route path="skin-guide" element={<AdminPlaceholderSection />} />
-          <Route path="newsletter" element={<AdminPlaceholderSection />} />
-          <Route path="analytics/sales" element={<AdminPlaceholderSection />} />
-          <Route path="analytics/products" element={<AdminPlaceholderSection />} />
-          <Route path="analytics/customers" element={<AdminPlaceholderSection />} />
-          <Route path="analytics/marketing" element={<AdminPlaceholderSection />} />
-          <Route path="operations/delivery" element={<AdminPlaceholderSection />} />
-          <Route path="operations/payments" element={<AdminPlaceholderSection />} />
-          <Route path="operations/alerts" element={<AdminPlaceholderSection />} />
-          <Route path="system/users" element={<AdminPlaceholderSection />} />
-          <Route path="settings" element={<AdminPlaceholderSection />} />
-          <Route path="system/activity-logs" element={<AdminPlaceholderSection />} />
+          <Route path="skin-guide" element={<AdminSkinGuide />} />
+          <Route path="newsletter" element={<AdminNewsletter />} />
+          <Route path="analytics" element={<AdminAnalytics />} />
+          <Route path="analytics/sales" element={<AdminAnalytics />} />
+          <Route path="analytics/products" element={<AdminAnalytics />} />
+          <Route path="analytics/customers" element={<AdminAnalytics />} />
+          <Route path="analytics/marketing" element={<AdminAnalytics />} />
+          <Route path="operations" element={<AdminOperations />} />
+          <Route path="operations/delivery" element={<AdminOperations />} />
+          <Route path="operations/payments" element={<AdminOperations />} />
+          <Route path="operations/alerts" element={<AdminOperations />} />
+          <Route path="system" element={<AdminSystem />} />
+          <Route path="system/users" element={<AdminSystem />} />
+          <Route path="system/settings" element={<AdminSystem />} />
+          <Route path="settings" element={<AdminSystem />} />
+          <Route path="system/activity-logs" element={<AdminSystem />} />
         </Route>
       </Routes>
     </QueryClientProvider>

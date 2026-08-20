@@ -13,6 +13,7 @@
   "include": [
     "lib/**/*",
     "prisma/**/*",
+    "server/prisma/**/*",
     "scripts/**/*",
     "*.ts"
   ]

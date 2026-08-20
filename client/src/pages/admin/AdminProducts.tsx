@@ -895,6 +895,28 @@ export const AdminProducts: React.FC = () => {
                     />
                   )}
                 </div>
+
+                {/* Quick Sample Presets */}
+                <div className="flex flex-wrap items-center gap-1 mt-2">
+                  <span className="text-[10px] text-slate-400">Sample product imagery:</span>
+                  {[
+                    { label: 'Cleanser Pump', url: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?q=80&w=800&auto=format&fit=crop' },
+                    { label: 'Serum Dropper', url: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=800&auto=format&fit=crop' },
+                    { label: 'Moisturizer Tub', url: 'https://images.unsplash.com/photo-1556228722-d0b5b244719c?q=80&w=800&auto=format&fit=crop' },
+                    { label: 'Sunscreen Tube', url: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?q=80&w=800&auto=format&fit=crop' },
+                    { label: 'Toner Bottle', url: 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?q=80&w=800&auto=format&fit=crop' },
+                    { label: 'Gel Cream', url: 'https://images.unsplash.com/photo-1576426863848-c21f53c60b19?q=80&w=800&auto=format&fit=crop' },
+                  ].map((s) => (
+                    <button
+                      key={s.label}
+                      type="button"
+                      onClick={() => setImageUrl(s.url)}
+                      className="px-1.5 py-0.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[10px] text-emerald-400 font-mono"
+                    >
+                      + {s.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Row 5: Badges & Marketing */}

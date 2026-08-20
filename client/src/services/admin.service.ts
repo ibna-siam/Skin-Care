@@ -245,6 +245,133 @@ export const adminService = {
     return res.data;
   },
 
+  // Categories
+  async getCategories() {
+    const res = await api.get<ApiResponse<any[]>>('/admin/categories');
+    return res.data.data || [];
+  },
+
+  async createCategory(data: any) {
+    const res = await api.post<ApiResponse>('/admin/categories', data);
+    return res.data;
+  },
+
+  async updateCategory(id: string, data: any) {
+    const res = await api.put<ApiResponse>(`/admin/categories/${id}`, data);
+    return res.data;
+  },
+
+  async deleteCategory(id: string) {
+    const res = await api.delete<ApiResponse>(`/admin/categories/${id}`);
+    return res.data;
+  },
+
+  // Brands
+  async getBrands() {
+    const res = await api.get<ApiResponse<any[]>>('/admin/brands');
+    return res.data.data || [];
+  },
+
+  async createBrand(data: any) {
+    const res = await api.post<ApiResponse>('/admin/brands', data);
+    return res.data;
+  },
+
+  async updateBrand(id: string, data: any) {
+    const res = await api.put<ApiResponse>(`/admin/brands/${id}`, data);
+    return res.data;
+  },
+
+  async deleteBrand(id: string) {
+    const res = await api.delete<ApiResponse>(`/admin/brands/${id}`);
+    return res.data;
+  },
+
+  // Campaigns
+  async getCampaigns() {
+    const res = await api.get<ApiResponse<any[]>>('/admin/campaigns');
+    return res.data.data || [];
+  },
+
+  async createCampaign(data: any) {
+    const res = await api.post<ApiResponse>('/admin/campaigns', data);
+    return res.data;
+  },
+
+  async updateCampaign(id: string, data: any) {
+    const res = await api.put<ApiResponse>(`/admin/campaigns/${id}`, data);
+    return res.data;
+  },
+
+  async deleteCampaign(id: string) {
+    const res = await api.delete<ApiResponse>(`/admin/campaigns/${id}`);
+    return res.data;
+  },
+
+  // Newsletters
+  async getNewsletters(params: { page?: number; limit?: number; search?: string } = {}) {
+    const res = await api.get<ApiResponse<any[]>>('/admin/newsletters', { params });
+    return res.data;
+  },
+
+  async deleteNewsletter(id: string) {
+    const res = await api.delete<ApiResponse>(`/admin/newsletters/${id}`);
+    return res.data;
+  },
+
+  // Skin Guide Quiz
+  async getSkinQuiz() {
+    const res = await api.get<ApiResponse<any[]>>('/admin/skin-guide');
+    return res.data.data || [];
+  },
+
+  async createSkinQuizQuestion(data: any) {
+    const res = await api.post<ApiResponse>('/admin/skin-guide/questions', data);
+    return res.data;
+  },
+
+  async updateSkinQuizQuestion(id: string, data: any) {
+    const res = await api.put<ApiResponse>(`/admin/skin-guide/questions/${id}`, data);
+    return res.data;
+  },
+
+  async deleteSkinQuizQuestion(id: string) {
+    const res = await api.delete<ApiResponse>(`/admin/skin-guide/questions/${id}`);
+    return res.data;
+  },
+
+  // Analytics Engine
+  async getAnalyticsOverview(days: number = 30) {
+    const res = await api.get<ApiResponse<any>>('/admin/analytics/overview', { params: { days } });
+    return res.data.data;
+  },
+
+  // Settings & System Users
+  async getStoreSettings() {
+    const res = await api.get<ApiResponse<any[]>>('/admin/settings');
+    return res.data.data || [];
+  },
+
+  async updateStoreSetting(data: { key: string; value: string; group?: string }) {
+    const res = await api.post<ApiResponse>('/admin/settings', data);
+    return res.data;
+  },
+
+  async getActivityLogs() {
+    const res = await api.get<ApiResponse<any[]>>('/admin/activity-logs');
+    return res.data.data || [];
+  },
+
+  async getUsers() {
+    const res = await api.get<ApiResponse<any[]>>('/admin/users');
+    return res.data.data || [];
+  },
+
+  async updateUserRole(id: string, data: { role?: string; isActive?: boolean }) {
+    const res = await api.patch<ApiResponse>(`/admin/users/${id}/role`, data);
+    return res.data;
+  },
+
   async uploadImage(file: File, folder: string = 'skincare-products') {
     const formData = new FormData();
     formData.append('image', file);

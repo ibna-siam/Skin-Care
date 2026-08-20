@@ -439,16 +439,22 @@ model HomepageSection {
 }
 
 model Banner {
-  id        String   @id @default(uuid())
-  title     String
-  subtitle  String?
-  imageUrl  String
-  linkUrl   String?
-  position  String   @default("HERO") // HERO, MIDDLE, POPUP
-  isActive  Boolean  @default(true)
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String    @id @default(uuid())
+  title      String
+  subtitle   String?
+  imageUrl   String
+  linkUrl    String?
+  buttonText String?
+  position   String    @default("HERO") // HERO, PROMO, MIDDLE, POPUP
+  isActive   Boolean   @default(true)
+  sortOrder  Int       @default(0)
+  startDate  DateTime?
+  endDate    DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([position])
+  @@index([isActive])
 }
 
 model Notification {
@@ -547,4 +553,53 @@ model AutomationLog {
   @@index([status])
   @@index([createdAt])
 }
+
+model MarketingCampaign {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  type        String    // EMAIL, SMS, PUSH, PROMOTION
+  status      String    @default("DRAFT") // DRAFT, SCHEDULED, ACTIVE, PAUSED, COMPLETED, CANCELLED
+  audience    String    @default("ALL")   // ALL, VIP, REPEAT, INACTIVE
+  subject     String?
+  message     String
+  couponCode  String?
+  imageUrl    String?
+  startDate   DateTime?
+  endDate     DateTime?
+  sentCount   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status])
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  adminId   String?
+  adminName String?
+  action    String   // CREATE, UPDATE, DELETE, STATUS_CHANGE
+  entity    String   // PRODUCT, CATEGORY, BRAND, ORDER, CAMPAIGN, COUPON, SETTING
+  entityId  String?
+  details   String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([entity])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model StoreSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  group     String   @default("GENERAL") // GENERAL, SHIPPING, PAYMENT, NOTIFICATION, SECURITY
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([group])
+}
+
+
 
