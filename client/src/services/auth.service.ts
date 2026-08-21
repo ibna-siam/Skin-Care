@@ -18,6 +18,37 @@ export const authService = {
     return res.data;
   },
 
+  async adminLogin(data: { identifier: string; password: string }) {
+    const res = await api.post<ApiResponse<{ user: UserProfile; token: string }>>('/auth/admin-login', data);
+    if (res.data.data?.token) {
+      localStorage.setItem('skincare_auth_token', res.data.data.token);
+    }
+    return res.data;
+  },
+
+  async googleAuth(data: { credential?: string; email?: string; name?: string; googleId?: string; avatarUrl?: string }) {
+    const res = await api.post<ApiResponse<{ user: UserProfile; token: string }>>('/auth/google', data);
+    if (res.data.data?.token) {
+      localStorage.setItem('skincare_auth_token', res.data.data.token);
+    }
+    return res.data;
+  },
+
+  async forgotPassword(email: string) {
+    const res = await api.post<ApiResponse>('/auth/forgot-password', { email });
+    return res.data;
+  },
+
+  async resetPassword(data: { token: string; newPassword: string }) {
+    const res = await api.post<ApiResponse>('/auth/reset-password', data);
+    return res.data;
+  },
+
+  async changePassword(data: { currentPassword: string; newPassword: string }) {
+    const res = await api.post<ApiResponse>('/auth/change-password', data);
+    return res.data;
+  },
+
   async logout() {
     try {
       const res = await api.post<ApiResponse>('/auth/logout');

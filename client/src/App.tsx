@@ -26,6 +26,8 @@ const OrderTrackPage = lazy(() => import('./pages/OrderTrackPage').then(m => ({ 
 const SkinGuidePage = lazy(() => import('./pages/SkinGuidePage').then(m => ({ default: m.SkinGuidePage })));
 const WishlistPage = lazy(() => import('./pages/WishlistPage').then(m => ({ default: m.WishlistPage })));
 const AccountPage = lazy(() => import('./pages/AccountPage').then(m => ({ default: m.AccountPage })));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
 const PaymentMockGateway = lazy(() => import('./pages/PaymentMockGateway').then(m => ({ default: m.PaymentMockGateway })));
 const AboutPage = lazy(() => import('./pages/StaticPages').then(m => ({ default: m.AboutPage })));
 const ContactPage = lazy(() => import('./pages/StaticPages').then(m => ({ default: m.ContactPage })));
@@ -34,9 +36,12 @@ const ShippingPage = lazy(() => import('./pages/StaticPages').then(m => ({ defau
 const TermsPage = lazy(() => import('./pages/StaticPages').then(m => ({ default: m.TermsPage })));
 
 // Admin Lazy Modules (Heavy dependencies like Recharts are split out)
+import { AdminRouteGuard } from './components/admin/AdminRouteGuard';
+const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage').then(m => ({ default: m.AdminLoginPage })));
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then(m => ({ default: m.AdminLayout })));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 const AdminProducts = lazy(() => import('./pages/admin/AdminProducts').then(m => ({ default: m.AdminProducts })));
+const AdminMedia = lazy(() => import('./pages/admin/AdminMedia').then(m => ({ default: m.AdminMedia })));
 const AdminCategories = lazy(() => import('./pages/admin/AdminCategories').then(m => ({ default: m.AdminCategories })));
 const AdminBrands = lazy(() => import('./pages/admin/AdminBrands').then(m => ({ default: m.AdminBrands })));
 const AdminInventory = lazy(() => import('./pages/admin/AdminInventory').then(m => ({ default: m.AdminInventory })));
@@ -145,6 +150,8 @@ export const App: React.FC = () => {
           <Route path="/wishlist" element={<WishlistPage />} />
           <Route path="/account" element={<AccountPage />} />
           <Route path="/account/addresses" element={<AccountPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/faq" element={<FAQPage />} />
@@ -154,17 +161,30 @@ export const App: React.FC = () => {
           <Route path="/payment/mock-gateway" element={<PaymentMockGateway />} />
         </Route>
 
-        {/* Admin Portal */}
+        {/* Dedicated Admin Login */}
+        <Route
+          path="/admin/login"
+          element={
+            <Suspense fallback={<AdminLoader />}>
+              <AdminLoginPage />
+            </Suspense>
+          }
+        />
+
+        {/* Protected Admin Portal */}
         <Route
           path="/admin"
           element={
             <Suspense fallback={<AdminLoader />}>
-              <AdminLayout />
+              <AdminRouteGuard>
+                <AdminLayout />
+              </AdminRouteGuard>
             </Suspense>
           }
         >
           <Route index element={<AdminDashboard />} />
           <Route path="products" element={<AdminProducts />} />
+          <Route path="media" element={<AdminMedia />} />
           <Route path="categories" element={<AdminCategories />} />
           <Route path="brands" element={<AdminBrands />} />
           <Route path="inventory" element={<AdminInventory />} />

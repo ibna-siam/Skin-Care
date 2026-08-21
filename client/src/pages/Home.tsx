@@ -3,20 +3,44 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { productService } from '../services/product.service';
 import { orderService } from '../services/order.service';
+import { publicMediaService } from '../services/admin.service';
 import { ProductCard } from '../components/product/ProductCard';
-import { ShieldCheck, Truck, Clock, Sparkles, UserCheck, ArrowRight, ChevronDown, CheckCircle, Star } from 'lucide-react';
+import {
+  ChevronDown,
+  ArrowRight,
+  ShieldCheck,
+  Truck,
+  RotateCcw,
+  Sparkles,
+  Search,
+  Star,
+  CheckCircle2,
+  PhoneCall,
+  Mail,
+  Send,
+  Loader2,
+  Lock,
+  Clock,
+} from 'lucide-react';
 import { Product } from '@skincare/shared';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [newsletterSuccess, setNewsletterSuccess] = useState(false);
+  const [isSubscribing, setIsSubscribing] = useState(false);
   const [activeReviewIdx, setActiveReviewIdx] = useState(0);
 
-  // Fetch Best Sellers from real API
+  // Fetch Best Seller Products from real API
   const { data: productsData, isLoading: isProductsLoading } = useQuery({
-    queryKey: ['best-sellers'],
-    queryFn: () => productService.getProducts({ isBestSeller: 'true', limit: 8 }),
+    queryKey: ['home-best-sellers'],
+    queryFn: () => productService.getProducts({ limit: 4, sort: 'popularity' }),
+  });
+
+  // Fetch Dynamic Website Media Slots (Zero-Code Image Management)
+  const { data: mediaSlots = {} } = useQuery({
+    queryKey: ['public-media-slots'],
+    queryFn: () => publicMediaService.getSlots(),
   });
 
   // Fetch Featured Customer Reviews from real API
@@ -34,7 +58,11 @@ export const Home: React.FC = () => {
   const heroSection = cmsSections.find((s: any) => s.sectionKey === 'hero');
   const heroTitle = heroSection?.title || 'Original Skincare for Real Skin';
   const heroSubtitle = heroSection?.subtitle || 'Trusted brands. 100% authentic.';
-  const heroImageUrl = heroSection?.imageUrl || 'https://images.unsplash.com/photo-1576426863848-c21f53c60b19?q=80&w=1200&auto=format&fit=crop';
+  const heroImageUrl =
+    mediaSlots['homepage.hero']?.url ||
+    heroSection?.imageUrl ||
+    'https://images.unsplash.com/photo-1576426863848-c21f53c60b19?q=80&w=1600&auto=format&fit=crop';
+  const heroAltText = mediaSlots['homepage.hero']?.altText || 'Original Skincare for Real Skin';
 
   const bestSellerProducts: Product[] = productsData?.data || [];
   const reviews = reviewsData && reviewsData.length > 0 ? reviewsData : [
@@ -157,8 +185,8 @@ export const Home: React.FC = () => {
           <div className="bg-white rounded-2xl border border-cream-300/80 overflow-hidden shadow-sm hover:shadow-card transition-all duration-300 flex flex-col group">
             <div className="relative aspect-[4/3] overflow-hidden bg-cream-100">
               <img
-                src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=600&auto=format&fit=crop"
-                alt="Men Skincare"
+                src={mediaSlots['homepage.men_skincare']?.url || 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=600&auto=format&fit=crop'}
+                alt={mediaSlots['homepage.men_skincare']?.altText || 'Men Skincare'}
                 className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
               />
             </div>
@@ -182,8 +210,8 @@ export const Home: React.FC = () => {
           <div className="bg-white rounded-2xl border border-cream-300/80 overflow-hidden shadow-sm hover:shadow-card transition-all duration-300 flex flex-col group">
             <div className="relative aspect-[4/3] overflow-hidden bg-cream-100">
               <img
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop"
-                alt="Women Skincare"
+                src={mediaSlots['homepage.women_skincare']?.url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop'}
+                alt={mediaSlots['homepage.women_skincare']?.altText || 'Women Skincare'}
                 className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
               />
             </div>
@@ -207,8 +235,8 @@ export const Home: React.FC = () => {
           <div className="bg-white rounded-2xl border border-cream-300/80 overflow-hidden shadow-sm hover:shadow-card transition-all duration-300 flex flex-col group">
             <div className="relative aspect-[4/3] overflow-hidden bg-cream-100">
               <img
-                src="https://images.unsplash.com/photo-1608248597359-00976156e520?q=80&w=600&auto=format&fit=crop"
-                alt="Skin Type Guide"
+                src={mediaSlots['homepage.skin_guide_card']?.url || 'https://images.unsplash.com/photo-1608248597359-00976156e520?q=80&w=600&auto=format&fit=crop'}
+                alt={mediaSlots['homepage.skin_guide_card']?.altText || 'Skin Type Guide'}
                 className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
               />
             </div>
@@ -343,6 +371,44 @@ export const Home: React.FC = () => {
       </section>
 
       {/* ========================================================================= */}
+      {/* 4.5. PROMOTIONAL STRIP BANNER (Media Slot: homepage.promo_banner) */}
+      {/* ========================================================================= */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div
+          className="relative rounded-3xl overflow-hidden shadow-soft-lg border border-cream-300/80 group cursor-pointer"
+          onClick={() => navigate('/shop')}
+        >
+          <img
+            src={
+              mediaSlots['homepage.promo_banner']?.url ||
+              'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?q=80&w=1600&auto=format&fit=crop'
+            }
+            alt={mediaSlots['homepage.promo_banner']?.altText || 'Summer Sun Protection SPF 50+'}
+            className="w-full h-44 sm:h-64 lg:h-72 object-cover object-center group-hover:scale-105 transition-transform duration-700"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-charcoal-900/85 via-charcoal-900/50 to-transparent flex items-center p-6 sm:p-12">
+            <div className="max-w-md space-y-3 text-white">
+              <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-widest text-amber-300 bg-amber-400/20 px-3 py-1 rounded-full border border-amber-300/30">
+                <Sparkles size={13} /> Exclusive Seasonal Promotion
+              </span>
+              <h3 className="font-serif text-xl sm:text-3xl lg:text-4xl font-bold leading-tight">
+                Authentic Korean Sunscreens &amp; Serums
+              </h3>
+              <p className="text-xs sm:text-sm text-gray-200 line-clamp-2">
+                Beat the heat with broad-spectrum SPF 50+ PA++++ lightweight formulations.
+              </p>
+              <div className="pt-2">
+                <span className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-800 hover:bg-brand-900 text-white rounded-xl text-xs font-semibold shadow-md transition-colors">
+                  <span>Shop Protection Deals</span>
+                  <ArrowRight size={14} />
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
       {/* 5. CUSTOMER REVIEWS (Matching testimonials cards with dots pagination) */}
       {/* ========================================================================= */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -357,7 +423,7 @@ export const Home: React.FC = () => {
 
         {/* 3 Review Cards Grid matching reference design */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {reviews.slice(0, 3).map((rev, idx) => (
+          {reviews.slice(0, 3).map((rev: any, idx: number) => (
             <div
               key={rev.id || idx}
               className="bg-white rounded-2xl border border-cream-300/80 p-6 shadow-sm hover:shadow-card transition-all duration-300 flex flex-col justify-between"
@@ -387,7 +453,7 @@ export const Home: React.FC = () => {
 
               <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-400">
                 <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                  <CheckCircle size={12} /> Verified Purchase
+                  <CheckCircle2 size={12} /> Verified Purchase
                 </span>
                 <span>{rev.product?.name || 'Skincare Customer'}</span>
               </div>
@@ -439,7 +505,7 @@ export const Home: React.FC = () => {
 
             {newsletterSuccess ? (
               <div className="p-4 bg-white/10 rounded-2xl border border-white/20 text-sm font-semibold text-brand-200 flex items-center justify-center gap-2">
-                <CheckCircle size={18} /> Thank you! Use coupon code <span className="text-white font-mono uppercase bg-brand-800 px-2 py-0.5 rounded">WELCOME10</span> at checkout.
+                <CheckCircle2 size={18} /> Thank you! Use coupon code <span className="text-white font-mono uppercase bg-brand-800 px-2 py-0.5 rounded">WELCOME10</span> at checkout.
               </div>
             ) : (
               <form onSubmit={handleNewsletterSubmit} className="flex flex-col sm:flex-row gap-3 pt-2">

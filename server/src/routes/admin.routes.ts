@@ -68,7 +68,7 @@ const router = Router();
 // Protect all admin routes with authentication and role check
 router.use(
   authenticate,
-  requireRole('SUPER_ADMIN', 'PRODUCT_MANAGER', 'ORDER_MANAGER', 'MARKETING_MANAGER', 'SUPPORT_STAFF')
+  requireRole('SUPER_ADMIN', 'ADMIN', 'PRODUCT_MANAGER', 'ORDER_MANAGER', 'MARKETING_MANAGER', 'SUPPORT_STAFF')
 );
 
 // Admin Dashboard KPIs
@@ -127,31 +127,29 @@ router.delete('/campaigns/:id', requireRole('SUPER_ADMIN', 'MARKETING_MANAGER'),
 // Newsletter Subscribers
 router.get('/newsletters', adminGetNewsletters);
 router.get('/newsletters/export/csv', adminExportNewsletters);
-router.delete('/newsletters/:id', requireRole('SUPER_ADMIN', 'MARKETING_MANAGER'), adminDeleteNewsletter);
+router.delete('/newsletters/:id', requireRole('SUPER_ADMIN', 'ADMIN', 'MARKETING_MANAGER'), adminDeleteNewsletter);
 
 // Skin Guide Management
 router.get('/skin-guide', adminGetSkinQuiz);
-router.post('/skin-guide/questions', requireRole('SUPER_ADMIN', 'PRODUCT_MANAGER'), adminCreateSkinQuizQuestion);
-router.put('/skin-guide/questions/:id', requireRole('SUPER_ADMIN', 'PRODUCT_MANAGER'), adminUpdateSkinQuizQuestion);
-router.delete('/skin-guide/questions/:id', requireRole('SUPER_ADMIN', 'PRODUCT_MANAGER'), adminDeleteSkinQuizQuestion);
+router.post('/skin-guide/questions', requireRole('SUPER_ADMIN', 'ADMIN', 'PRODUCT_MANAGER'), adminCreateSkinQuizQuestion);
+router.put('/skin-guide/questions/:id', requireRole('SUPER_ADMIN', 'ADMIN', 'PRODUCT_MANAGER'), adminUpdateSkinQuizQuestion);
+router.delete('/skin-guide/questions/:id', requireRole('SUPER_ADMIN', 'ADMIN', 'PRODUCT_MANAGER'), adminDeleteSkinQuizQuestion);
 
 // CMS & Homepage Sections
 router.get('/cms', adminGetCMSSections);
-router.put('/cms/sections/:sectionKey', requireRole('SUPER_ADMIN', 'MARKETING_MANAGER'), adminUpdateCMSSection);
+router.put('/cms/sections/:sectionKey', requireRole('SUPER_ADMIN', 'ADMIN', 'MARKETING_MANAGER'), adminUpdateCMSSection);
 
 // Banners
 router.get('/banners', adminGetBanners);
-router.post('/banners', requireRole('SUPER_ADMIN', 'MARKETING_MANAGER'), adminCreateBanner);
-router.put('/banners/:id', requireRole('SUPER_ADMIN', 'MARKETING_MANAGER'), adminUpdateBanner);
-router.delete('/banners/:id', requireRole('SUPER_ADMIN', 'MARKETING_MANAGER'), adminDeleteBanner);
+router.post('/banners', requireRole('SUPER_ADMIN', 'ADMIN', 'MARKETING_MANAGER'), adminCreateBanner);
+router.put('/banners/:id', requireRole('SUPER_ADMIN', 'ADMIN', 'MARKETING_MANAGER'), adminUpdateBanner);
+router.delete('/banners/:id', requireRole('SUPER_ADMIN', 'ADMIN', 'MARKETING_MANAGER'), adminDeleteBanner);
 
 // Analytics Engine
-router.get('/analytics/overview', adminGetAnalyticsOverview);
+router.get('/analytics/overview', requireRole('SUPER_ADMIN', 'ADMIN', 'MARKETING_MANAGER'), adminGetAnalyticsOverview);
 
 // Operations & Store Settings
 router.get('/settings', adminGetStoreSettings);
-router.post('/settings', requireRole('SUPER_ADMIN'), adminUpdateStoreSetting);
-router.get('/activity-logs', requireRole('SUPER_ADMIN'), adminGetActivityLogs);
 router.get('/users', requireRole('SUPER_ADMIN'), adminGetUsers);
 router.patch('/users/:id/role', requireRole('SUPER_ADMIN'), adminUpdateUserRole);
 

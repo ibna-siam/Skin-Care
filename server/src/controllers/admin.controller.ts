@@ -1425,9 +1425,29 @@ export async function adminDeleteCoupon(req: Request, res: Response, next: NextF
 
 export async function adminGetCMSSections(req: Request, res: Response, next: NextFunction) {
   try {
-    const sections = await prisma.homepageSection.findMany({
+    let sections = await prisma.homepageSection.findMany({
       orderBy: { sortOrder: 'asc' },
     });
+
+    // Fetch MediaAsset slot overrides
+    const mediaSlots = await prisma.mediaAsset.findMany({
+      where: {
+        slot: { in: ['homepage.hero', 'homepage.men_skincare', 'homepage.women_skincare', 'homepage.skin_guide_card', 'homepage.promo_banner'] },
+      },
+    });
+
+    const slotMap: Record<string, string> = {};
+    mediaSlots.forEach((m) => {
+      if (m.slot && m.url) slotMap[m.slot] = m.url;
+    });
+
+    sections = sections.map((s) => {
+      if (s.sectionKey === 'hero' && slotMap['homepage.hero']) {
+        return { ...s, imageUrl: slotMap['homepage.hero'] };
+      }
+      return s;
+    });
+
     return sendSuccess(res, sections);
   } catch (error) {
     next(error);
@@ -1464,6 +1484,33 @@ export async function adminUpdateCMSSection(req: Request, res: Response, next: N
       },
     });
 
+    // Sync to MediaAsset and Banner if hero section is updated
+    if (sectionKey === 'hero' && imageUrl) {
+      try {
+        const existingSlot = await prisma.mediaAsset.findFirst({ where: { slot: 'homepage.hero' } });
+        if (existingSlot) {
+          await prisma.mediaAsset.update({
+            where: { id: existingSlot.id },
+            data: { url: imageUrl, title },
+          });
+        } else {
+          await prisma.mediaAsset.create({
+            data: {
+              slot: 'homepage.hero',
+              title: title || 'Homepage Main Hero Banner',
+              url: imageUrl,
+              section: 'HOMEPAGE',
+            },
+          });
+        }
+
+        await prisma.banner.updateMany({
+          where: { position: 'HERO' },
+          data: { imageUrl, title: title || undefined },
+        });
+      } catch (e) {}
+    }
+
     return sendSuccess(res, section, 'Section updated');
   } catch (error) {
     next(error);
@@ -1472,9 +1519,84 @@ export async function adminUpdateCMSSection(req: Request, res: Response, next: N
 
 export async function adminGetBanners(req: Request, res: Response, next: NextFunction) {
   try {
-    const banners = await prisma.banner.findMany({
+    let banners = await prisma.banner.findMany({
       orderBy: { sortOrder: 'asc' },
     });
+
+    // Fetch active MediaAsset slots
+    const mediaSlots = await prisma.mediaAsset.findMany({
+      where: {
+        slot: {
+          in: ['homepage.hero', 'homepage.promo_banner', 'skin_guide.hero'],
+        },
+      },
+    });
+
+    const slotMap: Record<string, string> = {};
+    mediaSlots.forEach((m) => {
+      if (m.slot && m.url) slotMap[m.slot] = m.url;
+    });
+
+    // If no banners exist yet, seed initial banners from MediaAssets or defaults
+    if (banners.length === 0) {
+      const heroUrl = slotMap['homepage.hero'] || 'https://images.unsplash.com/photo-1576426863848-c21f53c60b19?q=80&w=1600&auto=format&fit=crop';
+      const promoUrl = slotMap['homepage.promo_banner'] || 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?q=80&w=1600&auto=format&fit=crop';
+      const skinGuideUrl = slotMap['skin_guide.hero'] || 'https://images.unsplash.com/photo-1556228720-195a672e8a03?q=80&w=1200&auto=format&fit=crop';
+
+      const initialBanners = [
+        {
+          title: 'Original Skincare for Real Skin',
+          subtitle: 'Trusted brands. 100% authentic dermatological solutions.',
+          imageUrl: heroUrl,
+          linkUrl: '/shop',
+          buttonText: 'Shop Now',
+          position: 'HERO',
+          isActive: true,
+          sortOrder: 1,
+        },
+        {
+          title: 'Authentic Korean Sunscreens & Serums',
+          subtitle: 'Broad-spectrum SPF 50+ PA++++ lightweight formulations.',
+          imageUrl: promoUrl,
+          linkUrl: '/shop',
+          buttonText: 'Explore Sun Protection',
+          position: 'PROMO',
+          isActive: true,
+          sortOrder: 2,
+        },
+        {
+          title: 'Skin Diagnostic Routine Finder',
+          subtitle: 'Answer 4 simple questions for tailored dermatologist routines.',
+          imageUrl: skinGuideUrl,
+          linkUrl: '/skin-guide',
+          buttonText: 'Start Routine Quiz',
+          position: 'SKIN_GUIDE',
+          isActive: true,
+          sortOrder: 3,
+        },
+      ];
+
+      for (const b of initialBanners) {
+        await prisma.banner.create({ data: b });
+      }
+
+      banners = await prisma.banner.findMany({ orderBy: { sortOrder: 'asc' } });
+    } else {
+      // Synchronize banners with latest MediaAsset images
+      banners = banners.map((b) => {
+        if (b.position === 'HERO' && slotMap['homepage.hero']) {
+          return { ...b, imageUrl: slotMap['homepage.hero'] };
+        }
+        if (b.position === 'PROMO' && slotMap['homepage.promo_banner']) {
+          return { ...b, imageUrl: slotMap['homepage.promo_banner'] };
+        }
+        if (b.position === 'SKIN_GUIDE' && slotMap['skin_guide.hero']) {
+          return { ...b, imageUrl: slotMap['skin_guide.hero'] };
+        }
+        return b;
+      });
+    }
+
     return sendSuccess(res, banners);
   } catch (error) {
     next(error);
@@ -1495,6 +1617,23 @@ export async function adminCreateBanner(req: Request, res: Response, next: NextF
         sortOrder: sortOrder ? parseInt(sortOrder, 10) : 0,
       },
     });
+
+    // Synchronize to MediaAsset
+    try {
+      const slotKey =
+        position === 'HERO' ? 'homepage.hero' : position === 'PROMO' ? 'homepage.promo_banner' : position === 'SKIN_GUIDE' ? 'skin_guide.hero' : null;
+      if (slotKey && imageUrl) {
+        const existing = await prisma.mediaAsset.findFirst({ where: { slot: slotKey } });
+        if (existing) {
+          await prisma.mediaAsset.update({ where: { id: existing.id }, data: { url: imageUrl, title } });
+        } else {
+          await prisma.mediaAsset.create({
+            data: { slot: slotKey, title: title || slotKey, url: imageUrl, section: 'HOMEPAGE' },
+          });
+        }
+      }
+    } catch (e) {}
+
     return sendSuccess(res, banner, 'Banner created', 201);
   } catch (error) {
     next(error);
@@ -1517,6 +1656,25 @@ export async function adminUpdateBanner(req: Request, res: Response, next: NextF
         sortOrder: sortOrder !== undefined ? parseInt(sortOrder, 10) : undefined,
       },
     });
+
+    // Synchronize to MediaAsset
+    try {
+      const targetPos = position || banner.position;
+      const targetUrl = imageUrl || banner.imageUrl;
+      const slotKey =
+        targetPos === 'HERO' ? 'homepage.hero' : targetPos === 'PROMO' ? 'homepage.promo_banner' : targetPos === 'SKIN_GUIDE' ? 'skin_guide.hero' : null;
+      if (slotKey && targetUrl) {
+        const existing = await prisma.mediaAsset.findFirst({ where: { slot: slotKey } });
+        if (existing) {
+          await prisma.mediaAsset.update({ where: { id: existing.id }, data: { url: targetUrl, title } });
+        } else {
+          await prisma.mediaAsset.create({
+            data: { slot: slotKey, title: title || slotKey, url: targetUrl, section: 'HOMEPAGE' },
+          });
+        }
+      }
+    } catch (e) {}
+
     return sendSuccess(res, banner, 'Banner updated');
   } catch (error) {
     next(error);

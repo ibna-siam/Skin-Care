@@ -98,6 +98,7 @@ export async function getProducts(req: Request, res: Response, next: NextFunctio
         orderBy = { createdAt: 'desc' };
         break;
       case 'best_selling':
+      case 'popularity':
         orderBy = [{ isBestSeller: 'desc' }, { reviewCount: 'desc' }];
         break;
       case 'price_asc':

@@ -23,6 +23,25 @@ export const updateProfileSchema = z.object({
 });
 
 export const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1),
+  currentPassword: z.string().min(1, 'Current password is required'),
   newPassword: z.string().min(6, 'New password must be at least 6 characters'),
 });
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email('Invalid email address'),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, 'Reset token is required'),
+  newPassword: z.string().min(6, 'Password must be at least 6 characters'),
+});
+
+export const googleAuthSchema = z.object({
+  credential: z.string().optional(),
+  tokenId: z.string().optional(),
+  email: z.string().email().optional(),
+  name: z.string().optional(),
+  googleId: z.string().optional(),
+  avatarUrl: z.string().optional().nullable(),
+});
+

@@ -16,6 +16,7 @@ export const productQuerySchema = z.object({
     'featured',
     'newest',
     'best_selling',
+    'popularity',
     'price_asc',
     'price_desc',
     'rating',

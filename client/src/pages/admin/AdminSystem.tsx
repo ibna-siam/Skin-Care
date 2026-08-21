@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminService } from '../../services/admin.service';
+import { authService } from '../../services/auth.service';
+import { useAuthStore } from '../../stores/authStore';
 import {
   Sliders,
   Users,
@@ -20,30 +22,46 @@ import {
   DollarSign,
   Truck,
   Sparkles,
+  KeyRound,
+  Eye,
+  EyeOff,
+  LogOut,
+  Laptop,
 } from 'lucide-react';
 
 export const AdminSystem: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user: currentAdmin, logout } = useAuthStore();
 
   // Determine active tab from URL path
   const getActiveTabFromPath = () => {
     const path = location.pathname;
+    if (path.includes('/security')) return 'security';
     if (path.includes('/users')) return 'users';
     if (path.includes('/activity-logs')) return 'logs';
     return 'settings';
   };
 
-  const [activeTab, setActiveTab] = useState<'settings' | 'users' | 'logs'>(getActiveTabFromPath());
+  const [activeTab, setActiveTab] = useState<'settings' | 'security' | 'users' | 'logs'>(getActiveTabFromPath());
+
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordStatus, setPasswordStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   useEffect(() => {
     setActiveTab(getActiveTabFromPath());
   }, [location.pathname]);
 
-  const handleTabChange = (tab: 'settings' | 'users' | 'logs') => {
+  const handleTabChange = (tab: 'settings' | 'security' | 'users' | 'logs') => {
     setActiveTab(tab);
     if (tab === 'settings') navigate('/admin/settings');
+    else if (tab === 'security') navigate('/admin/settings?tab=security');
     else if (tab === 'users') navigate('/admin/system/users');
     else navigate('/admin/system/activity-logs');
   };
@@ -101,6 +119,42 @@ export const AdminSystem: React.FC = () => {
     settingMutation.mutate({ key: 'free_shipping_threshold', value: freeShippingThreshold, group: 'SHIPPING' });
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordStatus(null);
+
+    if (!currentPassword) {
+      setPasswordStatus({ type: 'error', message: 'Current password is required.' });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordStatus({ type: 'error', message: 'New password must be at least 6 characters.' });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordStatus({ type: 'error', message: 'New passwords do not match.' });
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      await authService.changePassword({ currentPassword, newPassword });
+      setPasswordStatus({ type: 'success', message: 'Administrator security password updated successfully.' });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      setPasswordStatus({
+        type: 'error',
+        message: err.response?.data?.message || 'Failed to update password. Please check your current password.',
+      });
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   const sampleAuditLogs = logs.length > 0 ? logs : [
     {
       id: 'log-1',
@@ -143,10 +197,10 @@ export const AdminSystem: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2.5">
             <Sliders size={24} className="text-emerald-400" />
-            System Administration, Settings & RBAC
+            System Administration, Security &amp; RBAC
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Store configuration settings, administrator roles & permissions, and audit logs.
+            Store configuration settings, security credentials, administrator roles &amp; permissions, and audit logs.
           </p>
         </div>
 
@@ -177,6 +231,18 @@ export const AdminSystem: React.FC = () => {
         </button>
 
         <button
+          onClick={() => handleTabChange('security')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+            activeTab === 'security'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <KeyRound size={14} />
+          <span>Admin Security</span>
+        </button>
+
+        <button
           onClick={() => handleTabChange('users')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
             activeTab === 'users'
@@ -185,7 +251,7 @@ export const AdminSystem: React.FC = () => {
           }`}
         >
           <Users size={14} />
-          <span>Users & Staff Roles (RBAC)</span>
+          <span>Users &amp; Staff Roles (RBAC)</span>
         </button>
 
         <button
@@ -317,7 +383,170 @@ export const AdminSystem: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 2: USERS & ROLES RBAC */}
+      {/* TAB 2: ADMIN SECURITY & CREDENTIALS */}
+      {/* ========================================================================= */}
+      {activeTab === 'security' && (
+        <div className="space-y-6 max-w-4xl">
+          {/* Current Logged In Admin Profile Card */}
+          <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-xl relative overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xl">
+                  {currentAdmin?.name?.[0] || 'A'}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-bold text-white">{currentAdmin?.name || 'Administrator'}</h3>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-mono text-[10px] font-bold border border-emerald-500/30">
+                      {currentAdmin?.role || 'SUPER_ADMIN'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">{currentAdmin?.email || 'admin@skincare.com.bd'}</p>
+                </div>
+              </div>
+
+              <button
+                onClick={async () => {
+                  await logout();
+                  navigate('/admin/login', { replace: true });
+                }}
+                className="px-4 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs font-semibold flex items-center gap-1.5 transition-colors self-start sm:self-auto"
+              >
+                <LogOut size={14} />
+                <span>Log Out Admin Session</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Change Password Form */}
+            <form onSubmit={handleChangePassword} className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4 text-xs">
+              <div className="border-b border-slate-800 pb-3">
+                <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                  <KeyRound size={16} className="text-emerald-400" />
+                  Update Security Password
+                </h4>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Update your administrator access password securely.
+                </p>
+              </div>
+
+              {passwordStatus && (
+                <div
+                  className={`p-3 rounded-xl flex items-start gap-2 text-xs ${
+                    passwordStatus.type === 'success'
+                      ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+                      : 'bg-rose-500/10 border border-rose-500/20 text-rose-400'
+                  }`}
+                >
+                  {passwordStatus.type === 'success' ? (
+                    <CheckCircle2 size={14} className="shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                  )}
+                  <span>{passwordStatus.message}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="text-[11px] font-semibold text-slate-300 block mb-1">
+                  Current Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                  >
+                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-slate-300 block mb-1">
+                  New Password (min. 6 characters)
+                </label>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-slate-300 block mb-1">
+                  Confirm New Password
+                </label>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isChangingPassword}
+                  className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold transition-colors shadow-md disabled:opacity-50"
+                >
+                  {isChangingPassword ? 'Encrypting & Updating...' : 'Save New Password'}
+                </button>
+              </div>
+            </form>
+
+            {/* Active Session Station Info */}
+            <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4 text-xs">
+              <div className="border-b border-slate-800 pb-3">
+                <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Laptop size={16} className="text-blue-400" />
+                  Active Station &amp; Security Specs
+                </h4>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Real-time station telemetry and cryptographic status.
+                </p>
+              </div>
+
+              <div className="space-y-3 font-mono text-[11px]">
+                <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                  <span className="text-slate-400 font-sans">Token Transport:</span>
+                  <span className="text-emerald-400 font-semibold">HTTP-Only SameSite Cookie + Bearer</span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                  <span className="text-slate-400 font-sans">Encryption Standard:</span>
+                  <span className="text-blue-400 font-semibold">Bcrypt (Cost 10) + SHA-256 JWT</span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                  <span className="text-slate-400 font-sans">Token Expiration:</span>
+                  <span className="text-slate-200">7 Days Rolling Session</span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                  <span className="text-slate-400 font-sans">Brute-Force Shield:</span>
+                  <span className="text-emerald-400 font-semibold">Rate-Limited (15 req/15min)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 3: USERS & ROLES RBAC */}
       {/* ========================================================================= */}
       {activeTab === 'users' && (
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">

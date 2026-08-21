@@ -37,6 +37,14 @@ export const AdminBanners: React.FC = () => {
     queryFn: () => adminService.getBanners(),
   });
 
+  // Fetch Media Assets for 1-click image picker
+  const { data: mediaData } = useQuery({
+    queryKey: ['admin-media', 'ALL', ''],
+    queryFn: () => adminService.getMediaAssets({ section: 'ALL', limit: 20 }),
+  });
+
+  const mediaAssets: any[] = mediaData?.assets || [];
+
   // Create / Update Mutation
   const saveMutation = useMutation({
     mutationFn: (payload: any) => {
@@ -48,6 +56,10 @@ export const AdminBanners: React.FC = () => {
     onSuccess: () => {
       setIsModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ['admin-banners'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-media'] });
+      queryClient.invalidateQueries({ queryKey: ['public-media-slots'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-cms-sections'] });
+      queryClient.invalidateQueries({ queryKey: ['homepage-cms'] });
     },
   });
 
@@ -56,6 +68,8 @@ export const AdminBanners: React.FC = () => {
     mutationFn: (id: string) => adminService.deleteBanner(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-banners'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-media'] });
+      queryClient.invalidateQueries({ queryKey: ['public-media-slots'] });
     },
   });
 
@@ -65,6 +79,8 @@ export const AdminBanners: React.FC = () => {
       adminService.updateBanner(id, { isActive: active }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-banners'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-media'] });
+      queryClient.invalidateQueries({ queryKey: ['public-media-slots'] });
     },
   });
 
@@ -342,6 +358,35 @@ export const AdminBanners: React.FC = () => {
                   </label>
                 </div>
 
+                {/* Media Library Asset Quick Picker */}
+                {mediaAssets.length > 0 && (
+                  <div className="mt-2.5 p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1.5">
+                    <span className="text-[10px] font-semibold text-emerald-400 block">
+                      Choose from Uploaded Media Library ({mediaAssets.length}):
+                    </span>
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {mediaAssets.slice(0, 8).map((asset: any) => (
+                        <button
+                          key={asset.id}
+                          type="button"
+                          onClick={() => {
+                            setImageUrl(asset.url);
+                            if (!title && asset.title) setTitle(asset.title);
+                          }}
+                          className={`w-14 h-14 rounded-lg overflow-hidden shrink-0 border transition-all ${
+                            imageUrl === asset.url
+                              ? 'border-emerald-500 ring-2 ring-emerald-500/40'
+                              : 'border-slate-800 hover:border-slate-600 opacity-80 hover:opacity-100'
+                          }`}
+                          title={asset.title || asset.slot || 'Media asset'}
+                        >
+                          <img src={asset.url} alt="" className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Quick Sample Presets */}
                 <div className="flex flex-wrap items-center gap-1.5 mt-2">
                   <span className="text-[10px] text-slate-400">Sample presets:</span>
@@ -377,9 +422,11 @@ export const AdminBanners: React.FC = () => {
                     onChange={(e) => setPosition(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
                   >
-                    <option value="HERO">HERO (Main Carousel)</option>
-                    <option value="MIDDLE">MIDDLE (Mid-page Promo)</option>
-                    <option value="POPUP">POPUP (Storefront Modal)</option>
+                    <option value="HERO">HERO (Main Hero Carousel)</option>
+                    <option value="PROMO">PROMO (Promotional Strip Banner)</option>
+                    <option value="SKIN_GUIDE">SKIN_GUIDE (Skin Routine Diagnostic Banner)</option>
+                    <option value="MIDDLE">MIDDLE (Middle Section Banner)</option>
+                    <option value="POPUP">POPUP (Promotional Marketing Modal)</option>
                   </select>
                 </div>
 

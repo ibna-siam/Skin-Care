@@ -1,5 +1,6 @@
 export type Role =
   | "SUPER_ADMIN"
+  | "ADMIN"
   | "PRODUCT_MANAGER"
   | "ORDER_MANAGER"
   | "MARKETING_MANAGER"
@@ -297,3 +298,44 @@ export interface SkinQuizResult {
   }[];
   tips: string[];
 }
+
+export interface MediaAsset {
+  id: string;
+  title?: string | null;
+  url: string;
+  storageKey?: string | null;
+  section: string;
+  slot?: string | null;
+  altText?: string | null;
+  fileType?: string | null;
+  fileSize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  isSystem: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ForgotPasswordInput {
+  email: string;
+}
+
+export interface ResetPasswordInput {
+  token: string;
+  newPassword: string;
+}
+
+export interface ChangePasswordInput {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface GoogleAuthInput {
+  credential?: string;
+  tokenId?: string;
+  email?: string;
+  name?: string;
+  googleId?: string;
+  avatarUrl?: string;
+}
+

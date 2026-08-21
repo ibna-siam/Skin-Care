@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { skinGuideService } from '../services/skinGuide.service';
+import { publicMediaService } from '../services/admin.service';
 import { useCartStore } from '../stores/cartStore';
 import { Sparkles, Sun, Moon, CheckCircle2, ArrowRight, RotateCcw, ShieldCheck, ShoppingBag } from 'lucide-react';
 import { formatBDT, SkinQuizResult } from '@skincare/shared';
@@ -18,6 +19,12 @@ export const SkinGuidePage: React.FC = () => {
 
   const [routineResult, setRoutineResult] = useState<SkinQuizResult | null>(null);
   const [isLoadingRoutine, setIsLoadingRoutine] = useState(false);
+
+  // Fetch Dynamic Website Media Slots
+  const { data: mediaSlots = {} } = useQuery({
+    queryKey: ['public-media-slots'],
+    queryFn: () => publicMediaService.getSlots(),
+  });
 
   // Questions query
   const { data: questions = [] } = useQuery({
@@ -59,18 +66,28 @@ export const SkinGuidePage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-12">
-      {/* Hero Header */}
-      <div className="text-center space-y-3">
-        <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-brand-800 bg-brand-50 px-4 py-1 rounded-full border border-brand-200">
-          <Sparkles size={14} className="text-amber-500" /> Skincare Diagnostic Tool
-        </span>
-        <h1 className="font-serif text-3xl sm:text-4xl font-bold text-charcoal-900">
-          Find Your Perfect Skin Routine
-        </h1>
-        <p className="text-xs sm:text-sm text-gray-500 max-w-xl mx-auto">
-          Answer 4 simple questions. Our rule-based diagnostic engine matches you with dermatologist-approved active formulations tailored for the Bangladesh climate.
-        </p>
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-10">
+      {/* Dynamic Hero Banner (Media Slot: skin_guide.hero) */}
+      <div className="relative rounded-3xl overflow-hidden shadow-soft-lg border border-cream-300/80 bg-cream-100 min-h-[220px] max-h-[340px] group">
+        <img
+          src={
+            mediaSlots['skin_guide.hero']?.url ||
+            'https://images.unsplash.com/photo-1556228720-195a672e8a03?q=80&w=1200&auto=format&fit=crop'
+          }
+          alt={mediaSlots['skin_guide.hero']?.altText || 'Find your perfect dermatologist-approved routine'}
+          className="w-full h-full min-h-[220px] max-h-[340px] object-cover object-center group-hover:scale-105 transition-transform duration-700"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-charcoal-900/80 via-charcoal-900/40 to-transparent flex flex-col justify-end p-6 sm:p-10 text-white">
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-brand-300 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 w-fit mb-2">
+            <Sparkles size={13} className="text-amber-400" /> Skincare Diagnostic Tool
+          </span>
+          <h1 className="font-serif text-2xl sm:text-4xl font-bold tracking-tight text-white">
+            Find Your Perfect Skin Routine
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-200 max-w-xl mt-1.5">
+            Answer 4 simple questions. Our rule-based diagnostic engine matches you with dermatologist-approved active formulations tailored for the Bangladesh climate.
+          </p>
+        </div>
       </div>
 
       {!routineResult ? (

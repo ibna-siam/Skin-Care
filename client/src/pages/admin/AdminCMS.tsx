@@ -109,6 +109,10 @@ export const AdminCMS: React.FC = () => {
       setSavedSuccessKey(variables.sectionKey);
       setTimeout(() => setSavedSuccessKey(null), 2500);
       queryClient.invalidateQueries({ queryKey: ['admin-cms-sections'] });
+      queryClient.invalidateQueries({ queryKey: ['homepage-cms'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-banners'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-media'] });
+      queryClient.invalidateQueries({ queryKey: ['public-media-slots'] });
     },
   });
 

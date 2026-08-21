@@ -139,8 +139,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     {
       title: 'Content',
       icon: LayoutTemplate,
-      roles: ['SUPER_ADMIN', 'MARKETING_MANAGER'],
+      roles: ['SUPER_ADMIN', 'ADMIN', 'MARKETING_MANAGER'],
       items: [
+        { label: 'Media & Images', path: '/admin/media', icon: ImageIcon, badge: 'Live', badgeColor: 'bg-emerald-500/20 text-emerald-400' },
         { label: 'Homepage CMS', path: '/admin/cms', icon: LayoutTemplate },
         { label: 'Banners', path: '/admin/banners', icon: ImageIcon },
         { label: 'Skin Guide', path: '/admin/skin-guide', icon: BookOpen },
@@ -150,7 +151,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     {
       title: 'Analytics',
       icon: BarChart3,
-      roles: ['SUPER_ADMIN', 'MARKETING_MANAGER', 'PRODUCT_MANAGER'],
+      roles: ['SUPER_ADMIN', 'ADMIN', 'MARKETING_MANAGER', 'PRODUCT_MANAGER'],
       items: [
         { label: 'Sales Overview', path: '/admin/analytics/sales', icon: TrendingUp },
         { label: 'Product Analytics', path: '/admin/analytics/products', icon: LineChart },
@@ -161,7 +162,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     {
       title: 'Operations',
       icon: Navigation,
-      roles: ['SUPER_ADMIN', 'ORDER_MANAGER'],
+      roles: ['SUPER_ADMIN', 'ADMIN', 'ORDER_MANAGER'],
       items: [
         { label: 'Delivery Setup', path: '/admin/operations/delivery', icon: Navigation },
         { label: 'Payments', path: '/admin/operations/payments', icon: CreditCard },
@@ -171,10 +172,10 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     {
       title: 'System',
       icon: Settings,
-      roles: ['SUPER_ADMIN'],
+      roles: ['SUPER_ADMIN', 'ADMIN'],
       items: [
         { label: 'Users & Roles', path: '/admin/system/users', icon: ShieldAlert },
-        { label: 'Settings', path: '/admin/settings', icon: Settings },
+        { label: 'Settings & Security', path: '/admin/settings', icon: Settings },
         { label: 'Activity Logs', path: '/admin/system/activity-logs', icon: History },
       ],
     },

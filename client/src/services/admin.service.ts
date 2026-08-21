@@ -381,4 +381,65 @@ export const adminService = {
     });
     return res.data.data;
   },
+
+  // Media & Website Images Management
+  async getMediaAssets(params: { section?: string; slot?: string; search?: string; page?: number; limit?: number } = {}) {
+    const res = await api.get<ApiResponse<{ assets: any[]; slots: Record<string, any>; meta: any }>>('/media', { params });
+    return res.data.data || { assets: [], slots: {}, meta: { total: 0, page: 1, totalPages: 1 } };
+  },
+
+  async uploadMediaAsset(file: File, metadata: { title?: string; section?: string; slot?: string; altText?: string }) {
+    const formData = new FormData();
+    formData.append('image', file);
+    if (metadata.title) formData.append('title', metadata.title);
+    if (metadata.section) formData.append('section', metadata.section);
+    if (metadata.slot) formData.append('slot', metadata.slot);
+    if (metadata.altText) formData.append('altText', metadata.altText);
+
+    const res = await api.post<ApiResponse<any>>('/media/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+  },
+
+  async replaceSlotImage(slot: string, data: { file?: File; url?: string; title?: string; altText?: string; section?: string }) {
+    const formData = new FormData();
+    if (data.file) {
+      formData.append('image', data.file);
+    }
+    if (data.url) formData.append('url', data.url);
+    if (data.title) formData.append('title', data.title);
+    if (data.altText) formData.append('altText', data.altText);
+    if (data.section) formData.append('section', data.section);
+
+    const res = await api.put<ApiResponse<any>>(`/media/slots/${slot}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+  },
+
+  async updateMediaAsset(id: string, data: { title?: string; altText?: string; section?: string; slot?: string | null; url?: string }) {
+    const res = await api.put<ApiResponse<any>>(`/media/${id}`, data);
+    return res.data;
+  },
+
+  async deleteMediaAsset(id: string, force: boolean = false) {
+    const res = await api.delete<ApiResponse<any>>(`/media/${id}`, {
+      params: force ? { force: 'true' } : undefined,
+    });
+    return res.data;
+  },
 };
+
+// Storefront public media slots service with fallback
+export const publicMediaService = {
+  async getSlots() {
+    try {
+      const res = await api.get<ApiResponse<Record<string, { url: string; altText: string; title: string }>>>('/media/slots');
+      return res.data.data || {};
+    } catch {
+      return {};
+    }
+  },
+};
+
