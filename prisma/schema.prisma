@@ -617,6 +617,11 @@ model MediaAsset {
   storageKey  String?
   section     String   @default("GENERAL") // HOMEPAGE, PRODUCTS, BRANDS, CATEGORIES, BANNERS, SKIN_GUIDE, GENERAL
   slot        String?  // e.g. hero_main, men_grooming, women_care, skin_guide_card, promo_banner
+  altText     String?
+  fileType    String?  // image/jpeg, image/png, image/webp
+  fileSize    Int?     // bytes
+  width       Int?
+  height      Int?
   isSystem    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
