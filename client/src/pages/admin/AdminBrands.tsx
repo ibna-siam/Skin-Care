@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   X,
   Building2,
+  Upload,
 } from 'lucide-react';
 
 export const AdminBrands: React.FC = () => {
@@ -30,6 +31,7 @@ export const AdminBrands: React.FC = () => {
   const [website, setWebsite] = useState('');
   const [isFeatured, setIsFeatured] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
   // Fetch Brands
   const { data: brands = [], isLoading, isFetching, refetch } = useQuery({
@@ -398,34 +400,100 @@ export const AdminBrands: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-slate-300 block mb-1">Brand Logo URL</label>
-                <input
-                  type="url"
-                  value={logoUrl}
-                  onChange={(e) => setLogoUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
-                />
-                {/* Quick Sample Presets */}
-                <div className="flex flex-wrap items-center gap-1 mt-1.5">
-                  <span className="text-[10px] text-slate-400">Sample logos:</span>
-                  {[
-                    { label: 'CeraVe', url: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?q=80&w=300&auto=format&fit=crop' },
-                    { label: 'The Ordinary', url: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=300&auto=format&fit=crop' },
-                    { label: 'Minimalist', url: 'https://images.unsplash.com/photo-1608248597359-00976156e520?q=80&w=300&auto=format&fit=crop' },
-                    { label: 'Neutrogena', url: 'https://images.unsplash.com/photo-1576426863848-c21f53c60b19?q=80&w=300&auto=format&fit=crop' },
-                    { label: 'COSRX', url: 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?q=80&w=300&auto=format&fit=crop' },
-                    { label: 'Beauty of Joseon', url: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?q=80&w=300&auto=format&fit=crop' },
-                  ].map((s) => (
-                    <button
-                      key={s.label}
-                      type="button"
-                      onClick={() => setLogoUrl(s.url)}
-                      className="px-1.5 py-0.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[10px] text-amber-400 font-mono"
-                    >
-                      + {s.label}
-                    </button>
-                  ))}
+                <label className="text-[11px] font-semibold text-slate-300 block mb-1">Brand Logo / Image</label>
+                <div className="space-y-2">
+                  {logoUrl ? (
+                    <div className="flex items-center gap-3 bg-slate-950 p-2.5 rounded-2xl border border-slate-800">
+                      <img src={logoUrl} alt={name || 'Brand'} className="w-16 h-16 rounded-xl object-contain bg-white/5 p-1 border border-slate-700 shrink-0" />
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <p className="text-[11px] text-slate-300 truncate font-mono">{logoUrl}</p>
+                        <div className="flex items-center gap-2">
+                          <label className="cursor-pointer px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 text-[10px] font-semibold transition-colors">
+                            {isUploadingLogo ? 'Uploading...' : 'Replace Logo'}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              disabled={isUploadingLogo}
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                setIsUploadingLogo(true);
+                                try {
+                                  const url = await adminService.uploadImage(file, 'brands');
+                                  if (url) setLogoUrl(url);
+                                } catch (err: any) {
+                                  alert(err.message || 'Upload failed');
+                                } finally {
+                                  setIsUploadingLogo(false);
+                                }
+                              }}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setLogoUrl('')}
+                            className="px-2.5 py-1 rounded-lg bg-rose-500/15 text-rose-400 border border-rose-500/30 hover:bg-rose-500/25 text-[10px] font-semibold transition-colors"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <label className="cursor-pointer flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-slate-700 hover:border-emerald-500/50 bg-slate-950/60 hover:bg-slate-950 text-slate-300 hover:text-emerald-400 text-xs transition-colors">
+                        <Upload size={14} />
+                        <span>{isUploadingLogo ? 'Uploading Logo...' : 'Upload Logo from PC'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={isUploadingLogo}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setIsUploadingLogo(true);
+                            try {
+                              const url = await adminService.uploadImage(file, 'brands');
+                              if (url) setLogoUrl(url);
+                            } catch (err: any) {
+                              alert(err.message || 'Upload failed');
+                            } finally {
+                              setIsUploadingLogo(false);
+                            }
+                          }}
+                        />
+                      </label>
+                      <input
+                        type="url"
+                        value={logoUrl}
+                        onChange={(e) => setLogoUrl(e.target.value)}
+                        placeholder="Or paste Logo URL..."
+                        className="flex-1 bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 text-xs"
+                      />
+                    </div>
+                  )}
+
+                  {/* Quick Sample Presets */}
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className="text-[10px] text-slate-400">Presets:</span>
+                    {[
+                      { label: 'CeraVe', url: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?q=80&w=300&auto=format&fit=crop' },
+                      { label: 'The Ordinary', url: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=300&auto=format&fit=crop' },
+                      { label: 'Minimalist', url: 'https://images.unsplash.com/photo-1608248597359-00976156e520?q=80&w=300&auto=format&fit=crop' },
+                      { label: 'COSRX', url: 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?q=80&w=300&auto=format&fit=crop' },
+                    ].map((s) => (
+                      <button
+                        key={s.label}
+                        type="button"
+                        onClick={() => setLogoUrl(s.url)}
+                        className="px-1.5 py-0.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[10px] text-amber-400 font-mono"
+                      >
+                        + {s.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 

@@ -49,6 +49,45 @@ export const AdminOperations: React.FC = () => {
   const [expressFee, setExpressFee] = useState('150');
   const [freeShippingThreshold, setFreeShippingThreshold] = useState('2000');
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [paymentSaveSuccess, setPaymentSaveSuccess] = useState(false);
+
+  // Fetch Live Store Settings for Operations & Payments Sync
+  const { data: storeSettings = [], isLoading: isLoadingSettings } = useQuery({
+    queryKey: ['admin-store-settings'],
+    queryFn: () => adminService.getStoreSettings(),
+  });
+
+  const getSettingVal = (k: string, def = '') => {
+    const s = storeSettings.find((item: any) => item.key === k);
+    return s ? s.value : def;
+  };
+
+  useEffect(() => {
+    if (storeSettings.length > 0) {
+      setDhakaFee(getSettingVal('delivery_dhaka', '60'));
+      setOutsideDhakaFee(getSettingVal('delivery_outside', '120'));
+      setExpressFee(getSettingVal('delivery_express', '150'));
+      setFreeShippingThreshold(getSettingVal('free_shipping_threshold', '2000'));
+    }
+  }, [storeSettings]);
+
+  // Payment Gateway Toggle Mutation
+  const paymentToggleMutation = useMutation({
+    mutationFn: async (payload: { key: string; value: string; group: string }) => {
+      return adminService.updateStoreSetting(payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-store-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['public-store-settings'] });
+      setPaymentSaveSuccess(true);
+      setTimeout(() => setPaymentSaveSuccess(false), 3000);
+    },
+  });
+
+  const handleTogglePayment = (key: string, currentValue: string) => {
+    const nextVal = currentValue === 'true' ? 'false' : 'true';
+    paymentToggleMutation.mutate({ key, value: nextVal, group: 'PAYMENT' });
+  };
 
   // Fetch Inventory and Orders for live alerts
   const { data: inventoryData, isLoading: isLoadingInventory, refetch: refetchInventory } = useQuery({
@@ -64,15 +103,23 @@ export const AdminOperations: React.FC = () => {
   const lowStockProducts = inventoryData?.data || [];
   const pendingOrders = ordersData?.data || [];
 
-  const handleSaveDeliveryRates = (e: React.FormEvent) => {
+  const handleSaveDeliveryRates = async (e: React.FormEvent) => {
     e.preventDefault();
-    adminService.updateStoreSetting({ key: 'delivery_dhaka', value: dhakaFee, group: 'SHIPPING' });
-    adminService.updateStoreSetting({ key: 'delivery_outside', value: outsideDhakaFee, group: 'SHIPPING' });
-    adminService.updateStoreSetting({ key: 'delivery_express', value: expressFee, group: 'SHIPPING' });
-    adminService.updateStoreSetting({ key: 'free_shipping_threshold', value: freeShippingThreshold, group: 'SHIPPING' });
+    await adminService.updateStoreSettingsBatch([
+      { key: 'delivery_dhaka', value: dhakaFee, group: 'SHIPPING' },
+      { key: 'delivery_outside', value: outsideDhakaFee, group: 'SHIPPING' },
+      { key: 'delivery_express', value: expressFee, group: 'SHIPPING' },
+      { key: 'free_shipping_threshold', value: freeShippingThreshold, group: 'SHIPPING' },
+    ]);
+    queryClient.invalidateQueries({ queryKey: ['admin-store-settings'] });
+    queryClient.invalidateQueries({ queryKey: ['public-store-settings'] });
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
   };
+
+  const isCodEnabled = getSettingVal('ENABLE_COD', 'true') === 'true';
+  const isBkashEnabled = getSettingVal('ENABLE_BKASH', 'true') === 'true';
+  const isSslEnabled = getSettingVal('ENABLE_SSLCOMMERZ', 'true') === 'true';
 
   return (
     <div className="space-y-6">
@@ -84,12 +131,15 @@ export const AdminOperations: React.FC = () => {
             Operations, Delivery & Reconciliation Hub
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Configure Bangladesh courier delivery zones, reconcile bKash/Nagad/COD settlements, and monitor operations watchlists.
+            Configure Bangladesh courier delivery zones, reconcile bKash/SSLCommerz/COD settlements, and synchronize payment gateway availability.
           </p>
         </div>
 
         <button
-          onClick={() => refetchInventory()}
+          onClick={() => {
+            refetchInventory();
+            queryClient.invalidateQueries({ queryKey: ['admin-store-settings'] });
+          }}
           className="p-2 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 rounded-xl transition-colors self-start sm:self-auto"
           title="Refresh operations"
         >
@@ -120,7 +170,7 @@ export const AdminOperations: React.FC = () => {
           }`}
         >
           <CreditCard size={14} />
-          <span>Payment Gateway Reconciliation</span>
+          <span>Payment Gateways & Operations Sync</span>
         </button>
 
         <button
@@ -132,35 +182,30 @@ export const AdminOperations: React.FC = () => {
           }`}
         >
           <AlertTriangle size={14} />
-          <span>Operations & Inventory Alerts</span>
-          {(lowStockProducts.length > 0 || pendingOrders.length > 0) && (
-            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-amber-500/20 text-amber-400">
-              {lowStockProducts.length + pendingOrders.length}
-            </span>
-          )}
+          <span>Operations Watchlist ({lowStockProducts.length + pendingOrders.length})</span>
         </button>
       </div>
 
       {/* ========================================================================= */}
-      {/* TAB 1: DELIVERY ZONES & COURIER RATES */}
+      {/* TAB 1: DELIVERY ZONES & RATES */}
       {/* ========================================================================= */}
       {activeTab === 'delivery' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-lg">
               <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
                 <MapPin size={18} />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-100">Inside Dhaka Metro</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Standard 24–48 Hours Doorstep Delivery</p>
+                <h3 className="text-sm font-bold text-slate-100">Inside Dhaka Zone</h3>
+                <p className="text-xs text-slate-400 mt-0.5">24-48 Hours Doorstep Delivery</p>
               </div>
               <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
                 <span className="text-xs text-slate-400">Shipping Rate:</span>
                 <strong className="text-emerald-400 font-mono text-base">৳{dhakaFee} BDT</strong>
               </div>
               <span className="inline-block text-[10px] text-slate-400 font-mono bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
-                Steadfast / Pathao Express
+                Steadfast Courier / Pathao
               </span>
             </div>
 
@@ -169,8 +214,8 @@ export const AdminOperations: React.FC = () => {
                 <Truck size={18} />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-100">Outside Dhaka (Districts)</h3>
-                <p className="text-xs text-slate-400 mt-0.5">District Coverage (Chittagong, Sylhet, etc.)</p>
+                <h3 className="text-sm font-bold text-slate-100">Outside Dhaka Zone</h3>
+                <p className="text-xs text-slate-400 mt-0.5">64 Districts (3-5 Business Days)</p>
               </div>
               <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
                 <span className="text-xs text-slate-400">Shipping Rate:</span>
@@ -209,7 +254,7 @@ export const AdminOperations: React.FC = () => {
             {saveSuccess && (
               <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2">
                 <CheckCircle2 size={14} />
-                <span>Shipping rates updated and synced with checkout engine!</span>
+                <span>Shipping rates updated and synced across the checkout engine!</span>
               </div>
             )}
 
@@ -269,44 +314,111 @@ export const AdminOperations: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 2: PAYMENTS RECONCILIATION */}
+      {/* TAB 2: PAYMENTS GATEWAYS & SYNCHRONIZATION */}
       {/* ========================================================================= */}
       {activeTab === 'payments' && (
         <div className="space-y-6">
+          {paymentSaveSuccess && (
+            <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2">
+              <CheckCircle2 size={14} />
+              <span>Payment gateway state synchronized across Admin Panel and Storefront Checkout!</span>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-5 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-2">
+            {/* bKash Card */}
+            <div className="p-5 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-3 shadow-lg">
               <div className="flex items-center justify-between text-slate-400">
-                <span className="text-xs font-semibold">bKash Merchant Direct</span>
+                <span className="text-xs font-semibold">bKash Direct Merchant</span>
                 <CreditCard size={16} className="text-pink-400" />
               </div>
-              <p className="text-2xl font-bold text-pink-400">Direct API</p>
-              <span className="text-[11px] text-emerald-400">Instant gateway settlement</span>
-            </div>
-
-            <div className="p-5 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-2">
-              <div className="flex items-center justify-between text-slate-400">
-                <span className="text-xs font-semibold">Nagad Merchant Direct</span>
-                <CreditCard size={16} className="text-orange-400" />
+              <p className="text-2xl font-bold text-pink-400">bKash Gateway</p>
+              <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+                <span className={`text-xs font-bold ${isBkashEnabled ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  {isBkashEnabled ? '● Active in Checkout' : '○ Disabled'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleTogglePayment('ENABLE_BKASH', isBkashEnabled ? 'true' : 'false')}
+                  disabled={paymentToggleMutation.isPending}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                    isBkashEnabled
+                      ? 'bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/30'
+                      : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30'
+                  }`}
+                >
+                  {isBkashEnabled ? 'Disable' : 'Enable'}
+                </button>
               </div>
-              <p className="text-2xl font-bold text-orange-400">Direct API</p>
-              <span className="text-[11px] text-emerald-400">Instant gateway settlement</span>
             </div>
 
-            <div className="p-5 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-2">
+            {/* SSLCommerz Card */}
+            <div className="p-5 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-3 shadow-lg">
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="text-xs font-semibold">SSLCOMMERZ Multi-Gateway</span>
+                <CreditCard size={16} className="text-blue-400" />
+              </div>
+              <p className="text-2xl font-bold text-blue-400">Cards & MFS</p>
+              <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+                <span className={`text-xs font-bold ${isSslEnabled ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  {isSslEnabled ? '● Active in Checkout' : '○ Disabled'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleTogglePayment('ENABLE_SSLCOMMERZ', isSslEnabled ? 'true' : 'false')}
+                  disabled={paymentToggleMutation.isPending}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                    isSslEnabled
+                      ? 'bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/30'
+                      : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30'
+                  }`}
+                >
+                  {isSslEnabled ? 'Disable' : 'Enable'}
+                </button>
+              </div>
+            </div>
+
+            {/* Cash on Delivery Card */}
+            <div className="p-5 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-3 shadow-lg">
               <div className="flex items-center justify-between text-slate-400">
                 <span className="text-xs font-semibold">Cash on Delivery (COD)</span>
                 <DollarSign size={16} className="text-amber-400" />
               </div>
-              <p className="text-2xl font-bold text-slate-100">Courier Batch</p>
-              <span className="text-[11px] text-slate-400">Reconciles every Sunday</span>
+              <p className="text-2xl font-bold text-amber-400">Doorstep COD</p>
+              <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+                <span className={`text-xs font-bold ${isCodEnabled ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  {isCodEnabled ? '● Active in Checkout' : '○ Disabled'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleTogglePayment('ENABLE_COD', isCodEnabled ? 'true' : 'false')}
+                  disabled={paymentToggleMutation.isPending}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                    isCodEnabled
+                      ? 'bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/30'
+                      : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30'
+                  }`}
+                >
+                  {isCodEnabled ? 'Disable' : 'Enable'}
+                </button>
+              </div>
             </div>
           </div>
 
           <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-            <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-              <CreditCard size={16} className="text-emerald-400" />
-              Payment Gateway Reconciliation Schedule
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                <CreditCard size={16} className="text-emerald-400" />
+                Payment Gateway Reconciliation & Configuration
+              </h3>
+              <button
+                onClick={() => navigate('/admin/integrations/payments')}
+                className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-semibold"
+              >
+                <span>Edit API Credentials</span>
+                <ExternalLink size={12} />
+              </button>
+            </div>
 
             <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl text-xs space-y-2 text-slate-300">
               <div className="flex items-center justify-between">
@@ -318,9 +430,9 @@ export const AdminOperations: React.FC = () => {
                 <span className="font-mono text-slate-400">Steadfast ID: #SF-88392, Pathao ID: #PT-1940</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="font-semibold">Reconciliation Status:</span>
+                <span className="font-semibold">Payment Synchronization:</span>
                 <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold">
-                  <CheckCircle2 size={12} /> 100% Balanced
+                  <CheckCircle2 size={12} /> Synchronized with DB & Storefront
                 </span>
               </div>
             </div>

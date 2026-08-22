@@ -42,6 +42,7 @@ interface CartState {
   addToCart: (productId: string, quantity?: number) => Promise<void>;
   updateQuantity: (itemId: string, quantity: number) => Promise<void>;
   removeItem: (itemId: string) => Promise<void>;
+  clearCart: () => Promise<void>;
   applyCoupon: (coupon: any) => void;
   removeCoupon: () => void;
   freeShippingThreshold: number;
@@ -104,6 +105,17 @@ export const useCartStore = create<CartState>((set, get) => ({
       await get().fetchCart();
     } catch (error: any) {
       console.error(error);
+    }
+  },
+
+  clearCart: async () => {
+    // 1. Immediately reset client state
+    set({ items: [], subtotal: 0, count: 0, appliedCoupon: null });
+    // 2. Clear backend database cart
+    try {
+      await cartService.clearCart();
+    } catch (err) {
+      console.warn('Backend cart clear error:', err);
     }
   },
 

@@ -67,7 +67,13 @@ export const AdminProducts: React.FC = () => {
   const [gender, setGender] = useState<'ALL' | 'MEN' | 'WOMEN' | 'UNISEX'>('ALL');
   const [description, setDescription] = useState('');
   const [shortDescription, setShortDescription] = useState('');
+  const [countryOfOrigin, setCountryOfOrigin] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [imagesList, setImagesList] = useState<Array<{ url: string; altText?: string; sortOrder?: number; isPrimary?: boolean }>>([]);
+  const [selectedSkinTypeIds, setSelectedSkinTypeIds] = useState<string[]>([]);
+  const [selectedSkinConcernIds, setSelectedSkinConcernIds] = useState<string[]>([]);
+  const [activeModalTab, setActiveModalTab] = useState<'basic' | 'details' | 'media' | 'concerns'>('basic');
+  const [newImageUrl, setNewImageUrl] = useState('');
   const [badge, setBadge] = useState('');
   const [isBestSeller, setIsBestSeller] = useState(false);
   const [isFeatured, setIsFeatured] = useState(false);
@@ -115,6 +121,30 @@ export const AdminProducts: React.FC = () => {
     queryFn: () => productService.getCategories(),
   });
 
+  // Fetch Taxonomies (Skin Types & Target Concerns)
+  const { data: taxonomies } = useQuery({
+    queryKey: ['taxonomies'],
+    queryFn: () => productService.getTaxonomies(),
+  });
+
+  const skinTypes = taxonomies?.skinTypes || [
+    { id: 'st-normal', name: 'Normal Skin', slug: 'normal' },
+    { id: 'st-dry', name: 'Dry Skin', slug: 'dry' },
+    { id: 'st-oily', name: 'Oily Skin', slug: 'oily' },
+    { id: 'st-combination', name: 'Combination Skin', slug: 'combination' },
+    { id: 'st-sensitive', name: 'Sensitive Skin', slug: 'sensitive' },
+  ];
+
+  const skinConcerns = taxonomies?.skinConcerns || [
+    { id: 'sc-acne', name: 'Acne & Blemishes', slug: 'acne' },
+    { id: 'sc-dryness', name: 'Dryness & Dehydration', slug: 'dryness' },
+    { id: 'sc-dark-spots', name: 'Dark Spots & Pigmentation', slug: 'dark-spots' },
+    { id: 'sc-dullness', name: 'Dullness & Uneven Tone', slug: 'dullness' },
+    { id: 'sc-aging', name: 'Anti-Aging & Fine Lines', slug: 'aging' },
+    { id: 'sc-pores', name: 'Large Pores & Oiliness', slug: 'pores' },
+    { id: 'sc-sensitivity', name: 'Redness & Irritation', slug: 'sensitivity' },
+  ];
+
   // Automatically open modal if requested in URL (e.g. from quick actions)
   React.useEffect(() => {
     if (actionParam === 'create') {
@@ -145,6 +175,7 @@ export const AdminProducts: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
       queryClient.invalidateQueries({ queryKey: ['admin-inventory'] });
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
 
@@ -155,6 +186,7 @@ export const AdminProducts: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
       queryClient.invalidateQueries({ queryKey: ['admin-inventory'] });
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
 
@@ -166,6 +198,7 @@ export const AdminProducts: React.FC = () => {
       setSelectedProductIds([]);
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
       queryClient.invalidateQueries({ queryKey: ['admin-inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
 
@@ -183,7 +216,14 @@ export const AdminProducts: React.FC = () => {
     setGender('ALL');
     setDescription('');
     setShortDescription('');
+    setCountryOfOrigin('South Korea');
     setImageUrl('');
+    setImagesList([
+      { url: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?q=80&w=800&auto=format&fit=crop', isPrimary: true, sortOrder: 0 }
+    ]);
+    setSelectedSkinTypeIds([]);
+    setSelectedSkinConcernIds([]);
+    setActiveModalTab('basic');
     setBadge('');
     setIsBestSeller(false);
     setIsFeatured(false);
@@ -209,7 +249,11 @@ export const AdminProducts: React.FC = () => {
     setGender(p.gender || 'ALL');
     setDescription(p.description || '');
     setShortDescription(p.shortDescription || '');
-    setImageUrl(p.images?.[0]?.url || '');
+    setCountryOfOrigin(p.countryOfOrigin || '');
+    setImagesList(p.images && p.images.length > 0 ? p.images : [{ url: p.images?.[0]?.url || 'https://images.unsplash.com/photo-1556228720-195a672e8a03?q=80&w=800', isPrimary: true, sortOrder: 0 }]);
+    setSelectedSkinTypeIds((p.skinTypes || []).map((st: any) => st.id));
+    setSelectedSkinConcernIds((p.skinConcerns || []).map((sc: any) => sc.id));
+    setActiveModalTab('basic');
     setBadge(p.badge || '');
     setIsBestSeller(p.isBestSeller || false);
     setIsFeatured(p.isFeatured || false);
@@ -221,26 +265,72 @@ export const AdminProducts: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     try {
       setIsUploadingImage(true);
-      const res = await adminService.uploadImage(file, 'skincare-products');
-      if (res?.url) {
-        setImageUrl(res.url);
+      const url = await adminService.uploadImage(file, 'products');
+      if (url) {
+        setImagesList((prev) => [
+          ...prev,
+          { url, isPrimary: prev.length === 0, sortOrder: prev.length, altText: name },
+        ]);
       }
-    } catch (error) {
-      console.error('Image upload failed', error);
+    } catch (error: any) {
+      alert(error.message || 'Image upload failed');
     } finally {
       setIsUploadingImage(false);
     }
   };
 
+  const handleAddImageUrl = () => {
+    if (!newImageUrl.trim()) return;
+    setImagesList((prev) => [
+      ...prev,
+      { url: newImageUrl.trim(), isPrimary: prev.length === 0, sortOrder: prev.length, altText: name },
+    ]);
+    setNewImageUrl('');
+  };
+
+  const handleSetPrimaryImage = (index: number) => {
+    setImagesList((prev) =>
+      prev.map((img, idx) => ({
+        ...img,
+        isPrimary: idx === index,
+      }))
+    );
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setImagesList((prev) => {
+      const filtered = prev.filter((_, idx) => idx !== index);
+      if (filtered.length > 0 && !filtered.some((img) => img.isPrimary)) {
+        filtered[0].isPrimary = true;
+      }
+      return filtered;
+    });
+  };
+
+  const toggleSkinType = (id: string) => {
+    setSelectedSkinTypeIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSkinConcern = (id: string) => {
+    setSelectedSkinConcernIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !price || !sku || !brandId || !categoryId) return;
+    if (!name || !price || !sku || !brandId || !categoryId) {
+      alert('Please provide Product Title, Brand, Category, SKU, and Price.');
+      return;
+    }
 
     const payload: any = {
       name,
@@ -253,6 +343,7 @@ export const AdminProducts: React.FC = () => {
       lowStockThreshold: parseInt(lowStockThreshold, 10),
       status,
       gender,
+      countryOfOrigin: countryOfOrigin || null,
       description: description || name,
       shortDescription,
       badge: badge || undefined,
@@ -263,7 +354,16 @@ export const AdminProducts: React.FC = () => {
       ingredients,
       benefits,
       howToUse,
-      images: imageUrl ? [{ url: imageUrl, isPrimary: true }] : [],
+      images: imagesList.length > 0
+        ? imagesList.map((img, idx) => ({
+            url: img.url,
+            altText: img.altText || name,
+            sortOrder: idx,
+            isPrimary: img.isPrimary ?? (idx === 0),
+          }))
+        : [{ url: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?q=80&w=800', isPrimary: true, sortOrder: 0, altText: name }],
+      skinTypeIds: selectedSkinTypeIds,
+      skinConcernIds: selectedSkinConcernIds,
     };
 
     saveMutation.mutate(payload);
@@ -725,13 +825,17 @@ export const AdminProducts: React.FC = () => {
       {/* Create / Edit Product Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
-          <div className="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl text-slate-100 space-y-5 my-8 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+          <div className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl text-slate-100 my-8 animate-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 p-6 pb-4 shrink-0">
               <div className="flex items-center gap-2">
-                <Package className="text-emerald-400" size={20} />
-                <h3 className="text-base font-bold text-slate-100">
-                  {editingProductId ? 'Edit Skincare Product' : 'Add New Skincare Product'}
-                </h3>
+                <Package className="text-emerald-400" size={22} />
+                <div>
+                  <h3 className="text-base font-bold text-slate-100">
+                    {editingProductId ? 'Edit Skincare Product' : 'Add New Skincare Product'}
+                  </h3>
+                  <p className="text-[11px] text-slate-400">Complete all product details, images, and taxonomy classifications</p>
+                </div>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -741,260 +845,531 @@ export const AdminProducts: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-              {/* Row 1: Name & SKU */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="sm:col-span-2">
-                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">Product Title *</label>
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. CeraVe Foaming Facial Cleanser 236ml"
-                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
-                  />
+            {/* Navigation Tabs */}
+            <div className="flex items-center gap-2 px-6 border-b border-slate-800/80 bg-slate-950/40 shrink-0 overflow-x-auto py-2">
+              {[
+                { id: 'basic', label: '1. Basic Info & Pricing' },
+                { id: 'details', label: '2. Clinical Details & Usage' },
+                { id: 'concerns', label: `3. Skin Types & Concerns (${selectedSkinTypeIds.length + selectedSkinConcernIds.length})` },
+                { id: 'media', label: `4. Multi-Image Gallery (${imagesList.length})` },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveModalTab(tab.id as any)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                    activeModalTab === tab.id
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5 text-xs">
+              {/* TAB 1: BASIC INFO & PRICING */}
+              {activeModalTab === 'basic' && (
+                <div className="space-y-4 animate-in fade-in duration-150">
+                  {/* Title & SKU */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="text-[11px] font-semibold text-slate-300 block mb-1">Product Title *</label>
+                      <input
+                        type="text"
+                        required
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="e.g. CeraVe Foaming Facial Cleanser 236ml"
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-300 block mb-1">SKU *</label>
+                      <input
+                        type="text"
+                        required
+                        value={sku}
+                        onChange={(e) => setSku(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Brand, Category, Gender, Status */}
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-300 block mb-1">Brand *</label>
+                      <select
+                        value={brandId}
+                        onChange={(e) => setBrandId(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
+                      >
+                        {brands.map((b: any) => (
+                          <option key={b.id} value={b.id}>
+                            {b.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-300 block mb-1">Category *</label>
+                      <select
+                        value={categoryId}
+                        onChange={(e) => setCategoryId(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
+                      >
+                        {categories.map((c: any) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-300 block mb-1">Target Gender</label>
+                      <select
+                        value={gender}
+                        onChange={(e) => setGender(e.target.value as any)}
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
+                      >
+                        <option value="ALL">All (Unisex)</option>
+                        <option value="MEN">Men / Grooming</option>
+                        <option value="WOMEN">Women</option>
+                        <option value="UNISEX">Unisex</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-300 block mb-1">Status</label>
+                      <select
+                        value={status}
+                        onChange={(e) => setStatus(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
+                      >
+                        <option value="ACTIVE">Active (Live on Store)</option>
+                        <option value="DRAFT">Draft (Hidden)</option>
+                        <option value="ARCHIVED">Archived</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Pricing & Inventory */}
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-300 block mb-1">Regular Price (৳) *</label>
+                      <input
+                        type="number"
+                        step="any"
+                        required
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        placeholder="1250"
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-300 block mb-1">Compare-at Price (৳)</label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={compareAtPrice}
+                        onChange={(e) => setCompareAtPrice(e.target.value)}
+                        placeholder="1450"
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-300 block mb-1">Stock Quantity *</label>
+                      <input
+                        type="number"
+                        required
+                        value={stock}
+                        onChange={(e) => setStock(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-300 block mb-1">Low Stock Alert Level</label>
+                      <input
+                        type="number"
+                        value={lowStockThreshold}
+                        onChange={(e) => setLowStockThreshold(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Country of Origin & Badge */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-300 block mb-1">Country of Origin</label>
+                      <input
+                        type="text"
+                        value={countryOfOrigin}
+                        onChange={(e) => setCountryOfOrigin(e.target.value)}
+                        placeholder="e.g. South Korea, USA, France, Japan"
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-300 block mb-1">Custom Promo Badge Text</label>
+                      <input
+                        type="text"
+                        value={badge}
+                        onChange={(e) => setBadge(e.target.value)}
+                        placeholder="e.g. 20% OFF, DERMATOLOGIST TESTED"
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Badges & Marketing Flags */}
+                  <div className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-2">
+                    <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider font-mono">
+                      Merchandising & Showcase Flags
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                      <label className="flex items-center gap-2 cursor-pointer p-2 rounded-xl bg-slate-900 border border-slate-800">
+                        <input
+                          type="checkbox"
+                          checked={isFeatured}
+                          onChange={(e) => setIsFeatured(e.target.checked)}
+                          className="rounded bg-slate-800 border-slate-700 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <span className="text-slate-300 font-medium text-xs">Featured Product</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer p-2 rounded-xl bg-slate-900 border border-slate-800">
+                        <input
+                          type="checkbox"
+                          checked={isBestSeller}
+                          onChange={(e) => setIsBestSeller(e.target.checked)}
+                          className="rounded bg-slate-800 border-slate-700 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <span className="text-slate-300 font-medium text-xs">Best Seller</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer p-2 rounded-xl bg-slate-900 border border-slate-800">
+                        <input
+                          type="checkbox"
+                          checked={isNewArrival}
+                          onChange={(e) => setIsNewArrival(e.target.checked)}
+                          className="rounded bg-slate-800 border-slate-700 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <span className="text-slate-300 font-medium text-xs">New Arrival</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer p-2 rounded-xl bg-slate-900 border border-slate-800">
+                        <input
+                          type="checkbox"
+                          checked={isTrending}
+                          onChange={(e) => setIsTrending(e.target.checked)}
+                          className="rounded bg-slate-800 border-slate-700 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <span className="text-slate-300 font-medium text-xs">Trending Now</span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
+              )}
 
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">SKU *</label>
-                  <input
-                    type="text"
-                    required
-                    value={sku}
-                    onChange={(e) => setSku(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
-                  />
-                </div>
-              </div>
-
-              {/* Row 2: Brand & Category */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">Brand *</label>
-                  <select
-                    value={brandId}
-                    onChange={(e) => setBrandId(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
-                  >
-                    {brands.map((b: any) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">Category *</label>
-                  <select
-                    value={categoryId}
-                    onChange={(e) => setCategoryId(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
-                  >
-                    {categories.map((c: any) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">Status</label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
-                  >
-                    <option value="ACTIVE">Active (Live on Store)</option>
-                    <option value="DRAFT">Draft (Hidden)</option>
-                    <option value="ARCHIVED">Archived</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Row 3: Pricing & Stock */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">Regular Price (৳) *</label>
-                  <input
-                    type="number"
-                    step="any"
-                    required
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    placeholder="1250"
-                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">Compare-at Price (৳)</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={compareAtPrice}
-                    onChange={(e) => setCompareAtPrice(e.target.value)}
-                    placeholder="1450"
-                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">Initial Stock</label>
-                  <input
-                    type="number"
-                    required
-                    value={stock}
-                    onChange={(e) => setStock(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">Low Stock Threshold</label>
-                  <input
-                    type="number"
-                    value={lowStockThreshold}
-                    onChange={(e) => setLowStockThreshold(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-              </div>
-
-              {/* Row 4: Image Management */}
-              <div>
-                <label className="text-[11px] font-semibold text-slate-300 block mb-1">Primary Product Image</label>
-                <div className="flex flex-col sm:flex-row items-center gap-3">
-                  <input
-                    type="text"
-                    value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
-                    placeholder="https://images.unsplash.com/... or Cloudinary URL"
-                    className="flex-1 w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
-                  />
-
-                  <label className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl cursor-pointer flex items-center gap-1.5 shrink-0 transition-colors">
-                    <Upload size={14} />
-                    <span>{isUploadingImage ? 'Uploading...' : 'Upload Image'}</span>
+              {/* TAB 2: CLINICAL DETAILS & USAGE */}
+              {activeModalTab === 'details' && (
+                <div className="space-y-4 animate-in fade-in duration-150">
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-300 block mb-1">Short Description (Summary Card)</label>
                     <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      disabled={isUploadingImage}
-                      className="hidden"
+                      type="text"
+                      value={shortDescription}
+                      onChange={(e) => setShortDescription(e.target.value)}
+                      placeholder="e.g. Daily hydrating foaming cleanser with 3 essential ceramides and hyaluronic acid."
+                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
                     />
-                  </label>
+                  </div>
 
-                  {imageUrl && (
-                    <img
-                      src={imageUrl}
-                      alt="Preview"
-                      className="w-10 h-10 rounded-xl object-cover border border-slate-700 shrink-0"
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-300 block mb-1">Key Benefits (Bullet Points / Highlights)</label>
+                    <textarea
+                      rows={2}
+                      value={benefits}
+                      onChange={(e) => setBenefits(e.target.value)}
+                      placeholder="• Gently cleanses without disrupting skin barrier&#10;• Formulated with 3 essential ceramides&#10;• Non-comedogenic and fragrance-free"
+                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
                     />
-                  )}
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-300 block mb-1">How to Use (Application Instructions)</label>
+                    <textarea
+                      rows={2}
+                      value={howToUse}
+                      onChange={(e) => setHowToUse(e.target.value)}
+                      placeholder="Wet skin with lukewarm water. Massage cleanser into skin in a gentle, circular motion. Rinse well and pat dry."
+                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-300 block mb-1">Ingredients (INCI List)</label>
+                    <textarea
+                      rows={3}
+                      value={ingredients}
+                      onChange={(e) => setIngredients(e.target.value)}
+                      placeholder="Aqua / Water / Eau, Cocamidopropyl Hydroxysultaine, Glycerin, Niacinamide, Sodium Hyaluronate, Ceramide NP, Ceramide AP, Ceramide EOP..."
+                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono text-[11px]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-300 block mb-1">Full Detailed Product Description</label>
+                    <textarea
+                      rows={4}
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Complete product details, manufacturer background, clinical testing notes, and dermatological properties..."
+                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
                 </div>
+              )}
 
-                {/* Quick Sample Presets */}
-                <div className="flex flex-wrap items-center gap-1 mt-2">
-                  <span className="text-[10px] text-slate-400">Sample product imagery:</span>
-                  {[
-                    { label: 'Cleanser Pump', url: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?q=80&w=800&auto=format&fit=crop' },
-                    { label: 'Serum Dropper', url: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=800&auto=format&fit=crop' },
-                    { label: 'Moisturizer Tub', url: 'https://images.unsplash.com/photo-1556228722-d0b5b244719c?q=80&w=800&auto=format&fit=crop' },
-                    { label: 'Sunscreen Tube', url: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?q=80&w=800&auto=format&fit=crop' },
-                    { label: 'Toner Bottle', url: 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?q=80&w=800&auto=format&fit=crop' },
-                    { label: 'Gel Cream', url: 'https://images.unsplash.com/photo-1576426863848-c21f53c60b19?q=80&w=800&auto=format&fit=crop' },
-                  ].map((s) => (
-                    <button
-                      key={s.label}
-                      type="button"
-                      onClick={() => setImageUrl(s.url)}
-                      className="px-1.5 py-0.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[10px] text-emerald-400 font-mono"
-                    >
-                      + {s.label}
-                    </button>
-                  ))}
+              {/* TAB 3: SKIN TYPES & TARGET CONCERNS */}
+              {activeModalTab === 'concerns' && (
+                <div className="space-y-6 animate-in fade-in duration-150">
+                  {/* Skin Types */}
+                  <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-200 uppercase tracking-wider font-mono flex items-center gap-2">
+                        <Sparkles size={14} className="text-emerald-400" /> Suitable Skin Types
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        {selectedSkinTypeIds.length} selected
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                      {skinTypes.map((st: any) => {
+                        const isSelected = selectedSkinTypeIds.includes(st.id);
+                        return (
+                          <button
+                            key={st.id}
+                            type="button"
+                            onClick={() => toggleSkinType(st.id)}
+                            className={`p-3 rounded-xl border text-left flex items-center justify-between transition-all ${
+                              isSelected
+                                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                            }`}
+                          >
+                            <span className="font-semibold text-xs">{st.name}</span>
+                            {isSelected && <Check size={14} className="text-emerald-400 shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Skin Concerns */}
+                  <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-200 uppercase tracking-wider font-mono flex items-center gap-2">
+                        <Sparkles size={14} className="text-amber-400" /> Target Skin Concerns
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        {selectedSkinConcernIds.length} selected
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                      {skinConcerns.map((sc: any) => {
+                        const isSelected = selectedSkinConcernIds.includes(sc.id);
+                        return (
+                          <button
+                            key={sc.id}
+                            type="button"
+                            onClick={() => toggleSkinConcern(sc.id)}
+                            className={`p-3 rounded-xl border text-left flex items-center justify-between transition-all ${
+                              isSelected
+                                ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                            }`}
+                          >
+                            <span className="font-semibold text-xs">{sc.name}</span>
+                            {isSelected && <Check size={14} className="text-amber-400 shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Row 5: Badges & Marketing */}
-              <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-2">
-                <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider font-mono">
-                  Storefront Badges & Merchandising
-                </span>
-                <div className="flex flex-wrap items-center gap-4 pt-1">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={isFeatured}
-                      onChange={(e) => setIsFeatured(e.target.checked)}
-                      className="rounded bg-slate-800 border-slate-700 text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span className="text-slate-300 font-medium">Featured Product</span>
-                  </label>
+              {/* TAB 4: MULTI-IMAGE GALLERY */}
+              {activeModalTab === 'media' && (
+                <div className="space-y-4 animate-in fade-in duration-150">
+                  {/* Upload Actions */}
+                  <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-3">
+                    <span className="text-xs font-bold text-slate-200 uppercase tracking-wider font-mono flex items-center gap-2">
+                      <ImageIcon size={14} className="text-emerald-400" /> Add Product Media
+                    </span>
 
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={isBestSeller}
-                      onChange={(e) => setIsBestSeller(e.target.checked)}
-                      className="rounded bg-slate-800 border-slate-700 text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span className="text-slate-300 font-medium">Best Seller</span>
-                  </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Upload from PC */}
+                      <label className="cursor-pointer flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-dashed border-slate-700 hover:border-emerald-500/50 bg-slate-900 hover:bg-slate-800/80 text-slate-300 hover:text-emerald-400 transition-colors">
+                        <Upload size={16} />
+                        <span className="font-semibold">{isUploadingImage ? 'Uploading Image...' : 'Upload Image from PC'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={isUploadingImage}
+                          onChange={handleUploadImageFile}
+                        />
+                      </label>
 
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={isNewArrival}
-                      onChange={(e) => setIsNewArrival(e.target.checked)}
-                      className="rounded bg-slate-800 border-slate-700 text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span className="text-slate-300 font-medium">New Arrival</span>
-                  </label>
+                      {/* Paste URL */}
+                      <div className="flex gap-2">
+                        <input
+                          type="url"
+                          value={newImageUrl}
+                          onChange={(e) => setNewImageUrl(e.target.value)}
+                          placeholder="Paste image URL..."
+                          className="flex-1 bg-slate-900 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 text-xs"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddImageUrl}
+                          disabled={!newImageUrl.trim()}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white rounded-xl font-semibold transition-colors shrink-0"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </div>
 
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={isTrending}
-                      onChange={(e) => setIsTrending(e.target.checked)}
-                      className="rounded bg-slate-800 border-slate-700 text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span className="text-slate-300 font-medium">Trending Now</span>
-                  </label>
+                    {/* Presets */}
+                    <div className="flex flex-wrap items-center gap-1 pt-1">
+                      <span className="text-[10px] text-slate-400">Presets:</span>
+                      {[
+                        { label: 'Cleanser', url: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?q=80&w=800&auto=format&fit=crop' },
+                        { label: 'Serum', url: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=800&auto=format&fit=crop' },
+                        { label: 'Moisturizer', url: 'https://images.unsplash.com/photo-1556228722-d0b5b244719c?q=80&w=800&auto=format&fit=crop' },
+                        { label: 'Sunscreen', url: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?q=80&w=800&auto=format&fit=crop' },
+                        { label: 'Toner', url: 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?q=80&w=800&auto=format&fit=crop' },
+                      ].map((s) => (
+                        <button
+                          key={s.label}
+                          type="button"
+                          onClick={() => {
+                            setImagesList((prev) => [
+                              ...prev,
+                              { url: s.url, isPrimary: prev.length === 0, sortOrder: prev.length, altText: name },
+                            ]);
+                          }}
+                          className="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[10px] text-emerald-400 font-mono"
+                        >
+                          + {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Uploaded Images List */}
+                  <div className="space-y-2">
+                    <span className="text-[11px] font-semibold text-slate-300 block">
+                      Uploaded Images ({imagesList.length}) - Select Primary Image:
+                    </span>
+
+                    {imagesList.length === 0 ? (
+                      <div className="p-8 text-center border border-dashed border-slate-800 rounded-2xl text-slate-500">
+                        No product images attached yet. Add at least one image above.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {imagesList.map((img, idx) => (
+                          <div
+                            key={idx}
+                            className={`group relative p-2.5 rounded-2xl border transition-all flex flex-col justify-between ${
+                              img.isPrimary
+                                ? 'bg-emerald-500/10 border-emerald-500/50 ring-1 ring-emerald-500/30'
+                                : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                            }`}
+                          >
+                            <div className="relative aspect-square w-full rounded-xl overflow-hidden mb-2 bg-slate-900">
+                              <img src={img.url} alt={`Product image ${idx + 1}`} className="w-full h-full object-cover" />
+                              {img.isPrimary && (
+                                <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-bold shadow flex items-center gap-1">
+                                  <Star size={10} className="fill-white" /> Primary
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center justify-between gap-1 pt-1">
+                              {!img.isPrimary ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSetPrimaryImage(idx)}
+                                  className="text-[10px] text-emerald-400 hover:underline font-semibold"
+                                >
+                                  Set Primary
+                                </button>
+                              ) : (
+                                <span className="text-[10px] text-emerald-400 font-bold">Primary Cover</span>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveImage(idx)}
+                                className="p-1 rounded-lg text-rose-400 hover:bg-rose-500/20 transition-colors"
+                                title="Remove Image"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-
-              {/* Row 6: Description */}
-              <div>
-                <label className="text-[11px] font-semibold text-slate-300 block mb-1">Product Description</label>
-                <textarea
-                  rows={3}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Detailed product benefits, clinical usage, and ingredients..."
-                  className="w-full bg-slate-950 border border-slate-800 text-slate-200 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
-                />
-              </div>
+              )}
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-slate-400 hover:text-slate-200 rounded-xl hover:bg-slate-800 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saveMutation.isPending}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold shadow-sm transition-all disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  {saveMutation.isPending ? 'Saving...' : editingProductId ? 'Update Product' : 'Create Product'}
-                </button>
+              <div className="flex items-center justify-between pt-4 border-t border-slate-800 shrink-0">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2 text-slate-400 hover:text-slate-200 rounded-xl hover:bg-slate-800 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="submit"
+                    disabled={saveMutation.isPending}
+                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-md transition-all disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {saveMutation.isPending ? (
+                      <>
+                        <RefreshCw size={14} className="animate-spin" /> Saving Product...
+                      </>
+                    ) : editingProductId ? (
+                      'Update Product'
+                    ) : (
+                      'Create Product'
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

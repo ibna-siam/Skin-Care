@@ -86,6 +86,54 @@ export const AdminReviews: React.FC = () => {
     setPage(1);
   };
 
+  // Create Manual Review modal state
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [manualUserName, setManualUserName] = useState('');
+  const [manualRating, setManualRating] = useState(5);
+  const [manualTitle, setManualTitle] = useState('');
+  const [manualComment, setManualComment] = useState('');
+  const [manualIsVerified, setManualIsVerified] = useState(true);
+  const [manualIsFeatured, setManualIsFeatured] = useState(false);
+
+  // Products for selector
+  const { data: productsData } = useQuery({
+    queryKey: ['admin-products-selector'],
+    queryFn: () => adminService.getProducts({ limit: 100 }),
+  });
+  const productOptions = productsData?.data || [];
+
+  // Create Manual Review Mutation
+  const createReviewMutation = useMutation({
+    mutationFn: (data: any) => adminService.createManualReview(data),
+    onSuccess: () => {
+      setIsCreateModalOpen(false);
+      setSelectedProductId('');
+      setManualUserName('');
+      setManualTitle('');
+      setManualComment('');
+      queryClient.invalidateQueries({ queryKey: ['admin-reviews'] });
+    },
+  });
+
+  const handleCreateSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProductId || !manualUserName || !manualTitle || !manualComment) {
+      alert('Please fill out all required review fields');
+      return;
+    }
+
+    createReviewMutation.mutate({
+      productId: selectedProductId,
+      userName: manualUserName,
+      rating: manualRating,
+      title: manualTitle,
+      comment: manualComment,
+      isVerifiedPurchase: manualIsVerified,
+      isFeatured: manualIsFeatured,
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -101,6 +149,13 @@ export const AdminReviews: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors"
+          >
+            <Sparkles size={14} />
+            <span>Create Verified Review</span>
+          </button>
           <button
             onClick={() => refetch()}
             disabled={isFetching}
@@ -388,20 +443,133 @@ export const AdminReviews: React.FC = () => {
         </div>
       </div>
 
-      {/* Image Preview Modal */}
-      {previewImageUrl && (
-        <div
-          onClick={() => setPreviewImageUrl(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in"
-        >
-          <div className="relative max-w-xl max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl">
-            <img src={previewImageUrl} alt="Review attachment" className="w-full h-auto object-contain" />
-            <button
-              onClick={() => setPreviewImageUrl(null)}
-              className="absolute top-3 right-3 p-1.5 bg-slate-900/80 text-white rounded-full hover:bg-slate-800"
-            >
-              <X size={18} />
-            </button>
+      {/* Create Verified Manual Review Modal */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="font-bold text-base text-slate-100 flex items-center gap-2">
+                <Sparkles size={16} className="text-emerald-400" />
+                Create Verified Customer Review
+              </h3>
+              <button
+                onClick={() => setIsCreateModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateSubmit} className="space-y-3.5 text-xs text-slate-300">
+              <div>
+                <label className="block text-slate-400 font-semibold mb-1">Target Product *</label>
+                <select
+                  value={selectedProductId}
+                  onChange={(e) => setSelectedProductId(e.target.value)}
+                  required
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="">Select a product...</option>
+                  {productOptions.map((p: any) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.sku})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-400 font-semibold mb-1">Customer Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={manualUserName}
+                    onChange={(e) => setManualUserName(e.target.value)}
+                    placeholder="e.g. Samia Farhin"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 font-semibold mb-1">Rating (1 to 5 Stars)</label>
+                  <select
+                    value={manualRating}
+                    onChange={(e) => setManualRating(parseInt(e.target.value, 10))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="5">5 Stars (Excellent)</option>
+                    <option value="4">4 Stars (Good)</option>
+                    <option value="3">3 Stars (Average)</option>
+                    <option value="2">2 Stars (Poor)</option>
+                    <option value="1">1 Star (Bad)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-semibold mb-1">Review Title / Headline *</label>
+                <input
+                  type="text"
+                  required
+                  value={manualTitle}
+                  onChange={(e) => setManualTitle(e.target.value)}
+                  placeholder="e.g. Best Cica Serum for Sensitive Skin"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-semibold mb-1">Customer Experience Comment *</label>
+                <textarea
+                  required
+                  rows={3}
+                  value={manualComment}
+                  onChange={(e) => setManualComment(e.target.value)}
+                  placeholder="Describe skin improvements, texture, absorption..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-6 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={manualIsVerified}
+                    onChange={(e) => setManualIsVerified(e.target.checked)}
+                    className="rounded bg-slate-950 border-slate-800 text-emerald-500 focus:ring-0"
+                  />
+                  <span>Verified Purchase Badge</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={manualIsFeatured}
+                    onChange={(e) => setManualIsFeatured(e.target.checked)}
+                    className="rounded bg-slate-950 border-slate-800 text-emerald-500 focus:ring-0"
+                  />
+                  <span>Featured on Homepage</span>
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="px-4 py-2 border border-slate-700 text-slate-300 rounded-xl text-xs hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createReviewMutation.isPending}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-sm disabled:opacity-50"
+                >
+                  {createReviewMutation.isPending ? 'Publishing...' : 'Publish Review'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

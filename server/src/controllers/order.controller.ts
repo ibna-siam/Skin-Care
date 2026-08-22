@@ -4,6 +4,8 @@ import { sendSuccess, sendError } from '../utils/response.js';
 import { createOrderSchema } from '../validators/order.validator.js';
 import { calculateShippingFee, normalizeBDPhone } from '@skincare/shared';
 import { PaymentService } from '../payment/PaymentService.js';
+import { EmailNotificationService } from '../notifications/email.service.js';
+import { SMSNotificationService } from '../notifications/sms.service.js';
 
 export async function createOrder(req: Request, res: Response, next: NextFunction) {
   try {
@@ -141,7 +143,6 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
           couponCode: data.couponCode,
           shippingFee,
           totalAmount,
-          notes: data.notes,
           items: {
             create: orderItemsData,
           },
@@ -157,6 +158,19 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
           timeline: true,
         },
       });
+
+      // Clear Cart items for user or session
+      const sessionId = (req.headers['x-session-id'] as string) || (req.body as any)?.sessionId;
+      if (userId || sessionId) {
+        const cart = await tx.cart.findFirst({
+          where: userId ? { userId } : { sessionId },
+        });
+        if (cart) {
+          await tx.cartItem.deleteMany({
+            where: { cartId: cart.id },
+          });
+        }
+      }
 
       return newOrder;
     });
@@ -182,6 +196,19 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
         status: data.paymentMethod === 'COD' ? 'PENDING' : 'PENDING',
       },
     });
+
+    // Asynchronously dispatch Email & SMS Notifications without blocking checkout
+    setTimeout(async () => {
+      try {
+        await Promise.allSettled([
+          EmailNotificationService.sendOrderConfirmation(order),
+          EmailNotificationService.sendAdminAlert(order),
+          SMSNotificationService.sendOrderConfirmation(order),
+        ]);
+      } catch (err) {
+        console.warn('Background notification dispatch notice:', err);
+      }
+    }, 100);
 
     return sendSuccess(res, {
       order: {

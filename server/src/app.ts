@@ -1,9 +1,10 @@
-import express from 'express';
+﻿import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { apiLimiter } from './middleware/rateLimiter.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { ipBlockerMiddleware } from './middleware/ipBlocker.js';
 import routes from './routes/index.js';
 
 export const app = express();
@@ -34,6 +35,9 @@ const corsOptions: cors.CorsOptions = {
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
+// IP Blocking security layer (Enforces backend-level protection)
+app.use(ipBlockerMiddleware);
+
 // Security middleware
 app.use(
   helmet({
@@ -45,6 +49,20 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
+
+// Root endpoint & health checks for keep-alive cron jobs / monitoring
+app.get('/', (_req, res) => {
+  res.status(200).send('SkinCare API is running');
+});
+
+app.get('/health', (_req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    service: 'Skincare Bangladesh API',
+    uptime: process.uptime(),
+  });
+});
 
 // Apply global rate limiting to /api
 app.use('/api', apiLimiter);

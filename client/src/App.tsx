@@ -59,6 +59,7 @@ const AdminSkinGuide = lazy(() => import('./pages/admin/AdminSkinGuide').then(m 
 const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics').then(m => ({ default: m.AdminAnalytics })));
 const AdminOperations = lazy(() => import('./pages/admin/AdminOperations').then(m => ({ default: m.AdminOperations })));
 const AdminSystem = lazy(() => import('./pages/admin/AdminSystem').then(m => ({ default: m.AdminSystem })));
+const AdminIntegrations = lazy(() => import('./pages/admin/AdminIntegrations').then(m => ({ default: m.AdminIntegrations })));
 const AdminPlaceholderSection = lazy(() => import('./pages/admin/AdminPlaceholderSection').then(m => ({ default: m.AdminPlaceholderSection })));
 
 // QueryClient with 5-minute stale cache for blazing fast navigation
@@ -92,11 +93,16 @@ const AdminLoader = () => (
   </div>
 );
 
-// Scroll to top on navigation
-function ScrollToTop() {
+import { useStoreSettingsStore } from './stores/storeSettingsStore';
+import { AnalyticsService } from './services/analytics.service';
+
+// Scroll to top and track page view on navigation
+function ScrollToTopAndTrack() {
   const { pathname, search } = useLocation();
   useEffect(() => {
     window.scrollTo(0, 0);
+    const pageTitle = document.title || 'Skincare Bangladesh';
+    AnalyticsService.trackPageView(pageTitle, pathname + search);
   }, [pathname, search]);
   return null;
 }
@@ -127,21 +133,30 @@ export const App: React.FC = () => {
   const fetchUser = useAuthStore((state) => state.fetchUser);
   const fetchCart = useCartStore((state) => state.fetchCart);
   const fetchWishlist = useWishlistStore((state) => state.fetchWishlist);
+  const fetchSettings = useStoreSettingsStore((state) => state.fetchSettings);
 
   useEffect(() => {
+    fetchSettings();
     fetchUser();
     fetchCart();
     fetchWishlist();
-  }, [fetchUser, fetchCart, fetchWishlist]);
+  }, [fetchSettings, fetchUser, fetchCart, fetchWishlist]);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ScrollToTop />
+      <ScrollToTopAndTrack />
       <Routes>
         {/* Storefront Routes */}
         <Route element={<StorefrontLayout />}>
           <Route path="/" element={<Home />} />
           <Route path="/shop" element={<Shop />} />
+          <Route path="/shop/men" element={<Shop defaultGender="MEN" />} />
+          <Route path="/shop/women" element={<Shop defaultGender="WOMEN" />} />
+          <Route path="/category/:slug" element={<Shop />} />
+          <Route path="/shop/category/:slug" element={<Shop />} />
+          <Route path="/brand/:slug" element={<Shop />} />
+          <Route path="/skin-type/:slug" element={<Shop />} />
+          <Route path="/concern/:slug" element={<Shop />} />
           <Route path="/product/:slug" element={<ProductDetail />} />
           <Route path="/cart" element={<CartPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
@@ -213,6 +228,8 @@ export const App: React.FC = () => {
           <Route path="system/users" element={<AdminSystem />} />
           <Route path="system/settings" element={<AdminSystem />} />
           <Route path="settings" element={<AdminSystem />} />
+          <Route path="integrations" element={<AdminIntegrations />} />
+          <Route path="system/integrations" element={<AdminIntegrations />} />
           <Route path="system/activity-logs" element={<AdminSystem />} />
         </Route>
       </Routes>

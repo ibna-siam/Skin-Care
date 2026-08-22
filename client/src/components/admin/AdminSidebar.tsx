@@ -34,6 +34,7 @@ import {
   ShieldAlert,
   Settings,
   History,
+  KeyRound,
   ChevronDown,
   Store,
   PanelLeftClose,
@@ -174,6 +175,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       icon: Settings,
       roles: ['SUPER_ADMIN', 'ADMIN'],
       items: [
+        { label: 'API Integrations & Keys', path: '/admin/integrations', icon: KeyRound, badge: 'Live', badgeColor: 'bg-emerald-500/20 text-emerald-400' },
         { label: 'Users & Roles', path: '/admin/system/users', icon: ShieldAlert },
         { label: 'Settings & Security', path: '/admin/settings', icon: Settings },
         { label: 'Activity Logs', path: '/admin/system/activity-logs', icon: History },

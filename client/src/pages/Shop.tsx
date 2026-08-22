@@ -1,21 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { productService } from '../services/product.service';
 import { ProductCard } from '../components/product/ProductCard';
 import { Filter, X, ChevronDown, SlidersHorizontal, ArrowUpDown, Sparkles, Check } from 'lucide-react';
 import { Product } from '@skincare/shared';
 
-export const Shop: React.FC = () => {
+interface ShopProps {
+  defaultGender?: 'MEN' | 'WOMEN' | 'ALL';
+}
+
+export const Shop: React.FC<ShopProps> = ({ defaultGender }) => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { slug } = useParams<{ slug?: string }>();
+  const location = useLocation();
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
-  // Filter state extracted from URL query params
-  const categoryParam = searchParams.get('category') || '';
-  const brandParam = searchParams.get('brand') || '';
-  const skinTypeParam = searchParams.get('skinType') || '';
-  const skinConcernParam = searchParams.get('skinConcern') || '';
-  const genderParam = searchParams.get('gender') || 'ALL';
+  // Determine active route context
+  const isMenRoute = defaultGender === 'MEN' || location.pathname.includes('/shop/men');
+  const isWomenRoute = defaultGender === 'WOMEN' || location.pathname.includes('/shop/women');
+  const isCategoryRoute = location.pathname.includes('/category/') && slug;
+  const isBrandRoute = location.pathname.includes('/brand/') && slug;
+  const isSkinTypeRoute = location.pathname.includes('/skin-type/') && slug;
+  const isConcernRoute = location.pathname.includes('/concern/') && slug;
+
+  // Filter state extracted from URL query params (with route fallback)
+  const categoryParam = searchParams.get('category') || (isCategoryRoute ? slug! : '');
+  const brandParam = searchParams.get('brand') || (isBrandRoute ? slug! : '');
+  const skinTypeParam = searchParams.get('skinType') || (isSkinTypeRoute ? slug! : '');
+  const skinConcernParam = searchParams.get('skinConcern') || (isConcernRoute ? slug! : '');
+  const genderParam = searchParams.get('gender') || (isMenRoute ? 'MEN' : isWomenRoute ? 'WOMEN' : 'ALL');
   const sortParam = searchParams.get('sort') || 'featured';
   const searchParam = searchParams.get('search') || '';
   const minPriceParam = searchParams.get('minPrice') || '';

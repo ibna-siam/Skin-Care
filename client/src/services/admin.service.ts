@@ -144,26 +144,6 @@ export const adminService = {
     link.remove();
   },
 
-  async getReviews(params: {
-    page?: number;
-    limit?: number;
-    status?: string;
-    rating?: string;
-    search?: string;
-  } = {}) {
-    const res = await api.get<ApiResponse<any[]>>('/admin/reviews', { params });
-    return res.data;
-  },
-
-  async moderateReview(id: string, data: { status?: string; isFeatured?: boolean }) {
-    const res = await api.put<ApiResponse>(`/admin/reviews/${id}/moderate`, data);
-    return res.data;
-  },
-
-  async deleteReview(id: string) {
-    const res = await api.delete<ApiResponse>(`/admin/reviews/${id}`);
-    return res.data;
-  },
 
   async getCoupons() {
     const res = await api.get<ApiResponse<any[]>>('/admin/coupons');
@@ -372,14 +352,102 @@ export const adminService = {
     return res.data;
   },
 
-  async uploadImage(file: File, folder: string = 'skincare-products') {
+  async uploadImage(file: File, folder: string = 'skincare-products'): Promise<string> {
     const formData = new FormData();
     formData.append('image', file);
     formData.append('folder', folder);
     const res = await api.post<ApiResponse<{ url: string; publicId: string }>>('/admin/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+    return res.data.data?.url || (res.data as any)?.url || '';
+  },
+
+  // Reviews Moderation & Manual Creation
+  async getReviews(params: { page?: number; limit?: number; status?: string; rating?: string; productId?: string; search?: string } = {}) {
+    const res = await api.get<ApiResponse<any>>('/admin/reviews', { params });
+    return res.data;
+  },
+
+  async createManualReview(data: {
+    productId: string;
+    userName: string;
+    rating: number;
+    title: string;
+    comment: string;
+    isVerifiedPurchase?: boolean;
+    isFeatured?: boolean;
+    images?: string[];
+  }) {
+    const res = await api.post<ApiResponse<any>>('/admin/reviews/manual', data);
+    return res.data;
+  },
+
+  async moderateReview(id: string, data: { status?: string; rating?: number; title?: string; comment?: string; isFeatured?: boolean; isVerifiedPurchase?: boolean }) {
+    const res = await api.put<ApiResponse<any>>(`/admin/reviews/${id}/moderate`, data);
+    return res.data;
+  },
+
+  async deleteReview(id: string) {
+    const res = await api.delete<ApiResponse<any>>(`/admin/reviews/${id}`);
+    return res.data;
+  },
+
+  // Courier Logistics
+  async createCourierShipment(orderId: string, courierName: string = 'Steadfast') {
+    const res = await api.post<ApiResponse<any>>(`/admin/orders/${orderId}/courier-shipment`, { courierName });
+    return res.data;
+  },
+
+  async trackCourierShipment(orderId: string) {
+    const res = await api.get<ApiResponse<any>>(`/admin/orders/${orderId}/courier-track`);
     return res.data.data;
+  },
+
+  // IP Blocker & Security
+  async getBlockedIPs() {
+    const res = await api.get<ApiResponse<any[]>>('/admin/ip-blocker');
+    return res.data.data || [];
+  },
+
+  async addBlockedIP(ipAddress: string, reason?: string) {
+    const res = await api.post<ApiResponse<any>>('/admin/ip-blocker', { ipAddress, reason });
+    return res.data;
+  },
+
+  async toggleBlockedIP(id: string, isActive: boolean) {
+    const res = await api.patch<ApiResponse<any>>(`/admin/ip-blocker/${id}/toggle`, { isActive });
+    return res.data;
+  },
+
+  async deleteBlockedIP(id: string) {
+    const res = await api.delete<ApiResponse<any>>(`/admin/ip-blocker/${id}`);
+    return res.data;
+  },
+
+  async updateStoreSettingsBatch(settings: Array<{ key: string; value: string; group?: string }>) {
+    const res = await api.put<ApiResponse<any>>('/admin/settings/batch', { settings });
+    return res.data;
+  },
+
+  // Third-Party API Integrations Hub
+  async getIntegrationSettings() {
+    const res = await api.get<ApiResponse<{ settings: Record<string, string>; raw: any[] }>>('/admin/integrations/settings');
+    return res.data.data?.settings || {};
+  },
+
+  async testEmailConnection(email?: string) {
+    const res = await api.post<ApiResponse<any>>('/admin/integrations/test-email', { email });
+    return res.data;
+  },
+
+  async testSmsConnection(phone: string, message?: string) {
+    const res = await api.post<ApiResponse<any>>('/admin/integrations/test-sms', { phone, message });
+    return res.data;
+  },
+
+  async testCourierConnection(courierName: string = 'Steadfast') {
+    const res = await api.post<ApiResponse<any>>('/admin/integrations/test-courier', { courierName });
+    return res.data;
   },
 
   // Media & Website Images Management

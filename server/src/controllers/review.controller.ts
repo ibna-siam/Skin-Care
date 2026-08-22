@@ -71,6 +71,38 @@ export async function submitReview(req: Request, res: Response, next: NextFuncti
   }
 }
 
+export async function getProductReviews(req: Request, res: Response, next: NextFunction) {
+  try {
+    const productId = req.params.productId as string;
+    if (!productId) return sendError(res, 'Product ID required', 400);
+
+    const reviews = await prisma.review.findMany({
+      where: {
+        productId,
+        status: 'APPROVED',
+      },
+      include: {
+        images: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const stats = await prisma.review.aggregate({
+      where: { productId, status: 'APPROVED' },
+      _avg: { rating: true },
+      _count: { rating: true },
+    });
+
+    return sendSuccess(res, {
+      reviews,
+      averageRating: stats._avg?.rating || 5.0,
+      totalReviews: (stats._count && typeof stats._count === 'object' && 'rating' in stats._count ? stats._count.rating : reviews.length),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function getFeaturedReviews(req: Request, res: Response, next: NextFunction) {
   try {
     const reviews = await prisma.review.findMany({
@@ -81,6 +113,7 @@ export async function getFeaturedReviews(req: Request, res: Response, next: Next
       take: 8,
       include: {
         product: { select: { id: true, name: true, slug: true } },
+        images: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -90,3 +123,5 @@ export async function getFeaturedReviews(req: Request, res: Response, next: Next
     next(error);
   }
 }
+
+

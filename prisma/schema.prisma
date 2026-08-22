@@ -383,13 +383,18 @@ model Shipment {
   order          Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
   courierName    String    @default("Steadfast") // Steadfast, Pathao, RedX, Paperfly
   trackingNumber String?   @unique
+  consignmentId  String?   @unique
+  courierFee     Float?
   shippingStatus String    @default("PENDING")
+  rawResponse    String?
   shippedAt      DateTime?
   deliveredAt    DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
   @@index([orderId])
+  @@index([trackingNumber])
+  @@index([consignmentId])
 }
 
 model Review {
@@ -612,11 +617,6 @@ model MediaAsset {
   storageKey  String?
   section     String   @default("GENERAL") // HOMEPAGE, PRODUCTS, BRANDS, CATEGORIES, BANNERS, SKIN_GUIDE, GENERAL
   slot        String?  // e.g. hero_main, men_grooming, women_care, skin_guide_card, promo_banner
-  altText     String?
-  fileType    String?  // image/jpeg, image/png, image/webp
-  fileSize    Int?     // bytes
-  width       Int?
-  height      Int?
   isSystem    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -624,6 +624,19 @@ model MediaAsset {
   @@index([section])
   @@index([slot])
   @@index([createdAt])
+}
+
+model BlockedIP {
+  id        String   @id @default(uuid())
+  ipAddress String   @unique
+  reason    String?
+  isActive  Boolean  @default(true)
+  hitCount  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ipAddress])
+  @@index([isActive])
 }
 
 

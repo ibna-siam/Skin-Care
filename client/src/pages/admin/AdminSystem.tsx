@@ -39,12 +39,13 @@ export const AdminSystem: React.FC = () => {
   const getActiveTabFromPath = () => {
     const path = location.pathname;
     if (path.includes('/security')) return 'security';
+    if (path.includes('/ip-blocker')) return 'ip_blocker';
     if (path.includes('/users')) return 'users';
     if (path.includes('/activity-logs')) return 'logs';
     return 'settings';
   };
 
-  const [activeTab, setActiveTab] = useState<'settings' | 'security' | 'users' | 'logs'>(getActiveTabFromPath());
+  const [activeTab, setActiveTab] = useState<'settings' | 'security' | 'ip_blocker' | 'users' | 'logs'>(getActiveTabFromPath());
 
   // Password change state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -58,23 +59,80 @@ export const AdminSystem: React.FC = () => {
     setActiveTab(getActiveTabFromPath());
   }, [location.pathname]);
 
-  const handleTabChange = (tab: 'settings' | 'security' | 'users' | 'logs') => {
+  const handleTabChange = (tab: 'settings' | 'security' | 'ip_blocker' | 'users' | 'logs') => {
     setActiveTab(tab);
     if (tab === 'settings') navigate('/admin/settings');
     else if (tab === 'security') navigate('/admin/settings?tab=security');
+    else if (tab === 'ip_blocker') navigate('/admin/settings?tab=ip_blocker');
     else if (tab === 'users') navigate('/admin/system/users');
     else navigate('/admin/system/activity-logs');
   };
 
   // State for Store Settings
   const [storeName, setStoreName] = useState('Skincare Bangladesh');
-  const [supportPhone, setSupportPhone] = useState('+880 1700-000000');
+  const [supportPhone, setSupportPhone] = useState('+880 1711-223344');
   const [supportEmail, setSupportEmail] = useState('support@skincare.com.bd');
-  const [currencySymbol, setCurrencySymbol] = useState('৳ (BDT)');
+  const [storeAddress, setStoreAddress] = useState('House 42, Road 11, Banani, Dhaka-1213, Bangladesh');
+  const [storeLogoUrl, setStoreLogoUrl] = useState('https://images.unsplash.com/photo-1556228720-195a672e8a03?q=80&w=400');
+  const [facebookUrl, setFacebookUrl] = useState('https://facebook.com/skincarebd');
+  const [instagramUrl, setInstagramUrl] = useState('https://instagram.com/skincarebd');
+  const [whatsappNumber, setWhatsappNumber] = useState('+8801711223344');
+  const [ga4Id, setGa4Id] = useState('G-SKINCAREBD123');
+  const [fbPixelId, setFbPixelId] = useState('987654321012345');
+  const [steadfastApiKey, setSteadfastApiKey] = useState('');
+  const [steadfastSecretKey, setSteadfastSecretKey] = useState('');
+  const [pathaoClientId, setPathaoClientId] = useState('');
+  const [pathaoClientSecret, setPathaoClientSecret] = useState('');
+  const [smsProvider, setSmsProvider] = useState('GREENWEB');
+  const [smsApiKey, setSmsApiKey] = useState('');
   const [dhakaShipping, setDhakaShipping] = useState('60');
   const [outsideDhakaShipping, setOutsideDhakaShipping] = useState('120');
   const [freeShippingThreshold, setFreeShippingThreshold] = useState('2000');
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // IP Blocker State
+  const [newBlockedIp, setNewBlockedIp] = useState('');
+  const [blockedReason, setBlockedReason] = useState('');
+  const [isAddIpOpen, setIsAddIpOpen] = useState(false);
+
+  // Fetch Store Settings from DB
+  const { data: storeSettingsList = [] } = useQuery({
+    queryKey: ['admin-store-settings'],
+    queryFn: () => adminService.getStoreSettings(),
+  });
+
+  useEffect(() => {
+    if (storeSettingsList && storeSettingsList.length > 0) {
+      const map: Record<string, string> = {};
+      storeSettingsList.forEach((s: any) => { map[s.key] = s.value; });
+      if (map['STORE_NAME']) setStoreName(map['STORE_NAME']);
+      if (map['STORE_LOGO_URL']) setStoreLogoUrl(map['STORE_LOGO_URL']);
+      if (map['SUPPORT_PHONE']) setSupportPhone(map['SUPPORT_PHONE']);
+      if (map['SUPPORT_EMAIL']) setSupportEmail(map['SUPPORT_EMAIL']);
+      if (map['STORE_ADDRESS']) setStoreAddress(map['STORE_ADDRESS']);
+      if (map['FACEBOOK_URL']) setFacebookUrl(map['FACEBOOK_URL']);
+      if (map['INSTAGRAM_URL']) setInstagramUrl(map['INSTAGRAM_URL']);
+      if (map['WHATSAPP_NUMBER']) setWhatsappNumber(map['WHATSAPP_NUMBER']);
+      if (map['GA4_MEASUREMENT_ID']) setGa4Id(map['GA4_MEASUREMENT_ID']);
+      if (map['FB_PIXEL_ID']) setFbPixelId(map['FB_PIXEL_ID']);
+      if (map['STEADFAST_API_KEY']) setSteadfastApiKey(map['STEADFAST_API_KEY']);
+      if (map['STEADFAST_SECRET_KEY']) setSteadfastSecretKey(map['STEADFAST_SECRET_KEY']);
+      if (map['PATHAO_CLIENT_ID']) setPathaoClientId(map['PATHAO_CLIENT_ID']);
+      if (map['PATHAO_CLIENT_SECRET']) setPathaoClientSecret(map['PATHAO_CLIENT_SECRET']);
+      if (map['SMS_PROVIDER']) setSmsProvider(map['SMS_PROVIDER']);
+      if (map['SMS_API_KEY']) setSmsApiKey(map['SMS_API_KEY']);
+      if (map['delivery_dhaka']) setDhakaShipping(map['delivery_dhaka']);
+      if (map['delivery_outside']) setOutsideDhakaShipping(map['delivery_outside']);
+      if (map['free_shipping_threshold']) setFreeShippingThreshold(map['free_shipping_threshold']);
+    }
+  }, [storeSettingsList]);
+
+  // Fetch Blocked IPs
+  const { data: blockedIPs = [], refetch: refetchBlockedIPs } = useQuery({
+    queryKey: ['admin-blocked-ips'],
+    queryFn: () => adminService.getBlockedIPs(),
+    enabled: activeTab === 'ip_blocker' || activeTab === 'security',
+  });
 
   // Fetch Users
   const { data: users = [], isLoading: isLoadingUsers, refetch: refetchUsers } = useQuery({
@@ -88,6 +146,36 @@ export const AdminSystem: React.FC = () => {
     queryFn: () => adminService.getActivityLogs(),
   });
 
+  // Batch Settings Mutation
+  const batchSettingsMutation = useMutation({
+    mutationFn: (settings: any[]) => adminService.updateStoreSettingsBatch(settings),
+    onSuccess: () => {
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    },
+  });
+
+  // IP Block Mutations
+  const addIpMutation = useMutation({
+    mutationFn: (data: { ipAddress: string; reason?: string }) => adminService.addBlockedIP(data.ipAddress, data.reason),
+    onSuccess: () => {
+      setNewBlockedIp('');
+      setBlockedReason('');
+      setIsAddIpOpen(false);
+      refetchBlockedIPs();
+    },
+  });
+
+  const toggleIpMutation = useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => adminService.toggleBlockedIP(id, isActive),
+    onSuccess: () => refetchBlockedIPs(),
+  });
+
+  const deleteIpMutation = useMutation({
+    mutationFn: (id: string) => adminService.deleteBlockedIP(id),
+    onSuccess: () => refetchBlockedIPs(),
+  });
+
   // Role Mutation
   const roleMutation = useMutation({
     mutationFn: ({ id, role }: { id: string; role: string }) =>
@@ -98,25 +186,29 @@ export const AdminSystem: React.FC = () => {
     },
   });
 
-  // Setting Mutation
-  const settingMutation = useMutation({
-    mutationFn: (data: { key: string; value: string; group?: string }) =>
-      adminService.updateStoreSetting(data),
-    onSuccess: () => {
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    },
-  });
-
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
-    settingMutation.mutate({ key: 'store_name', value: storeName, group: 'GENERAL' });
-    settingMutation.mutate({ key: 'support_phone', value: supportPhone, group: 'GENERAL' });
-    settingMutation.mutate({ key: 'support_email', value: supportEmail, group: 'GENERAL' });
-    settingMutation.mutate({ key: 'currency_symbol', value: currencySymbol, group: 'GENERAL' });
-    settingMutation.mutate({ key: 'delivery_dhaka', value: dhakaShipping, group: 'SHIPPING' });
-    settingMutation.mutate({ key: 'delivery_outside', value: outsideDhakaShipping, group: 'SHIPPING' });
-    settingMutation.mutate({ key: 'free_shipping_threshold', value: freeShippingThreshold, group: 'SHIPPING' });
+    batchSettingsMutation.mutate([
+      { key: 'STORE_NAME', value: storeName, group: 'GENERAL' },
+      { key: 'STORE_LOGO_URL', value: storeLogoUrl, group: 'GENERAL' },
+      { key: 'SUPPORT_PHONE', value: supportPhone, group: 'GENERAL' },
+      { key: 'SUPPORT_EMAIL', value: supportEmail, group: 'GENERAL' },
+      { key: 'STORE_ADDRESS', value: storeAddress, group: 'GENERAL' },
+      { key: 'FACEBOOK_URL', value: facebookUrl, group: 'GENERAL' },
+      { key: 'INSTAGRAM_URL', value: instagramUrl, group: 'GENERAL' },
+      { key: 'WHATSAPP_NUMBER', value: whatsappNumber, group: 'GENERAL' },
+      { key: 'GA4_MEASUREMENT_ID', value: ga4Id, group: 'ANALYTICS' },
+      { key: 'FB_PIXEL_ID', value: fbPixelId, group: 'ANALYTICS' },
+      { key: 'STEADFAST_API_KEY', value: steadfastApiKey, group: 'COURIER' },
+      { key: 'STEADFAST_SECRET_KEY', value: steadfastSecretKey, group: 'COURIER' },
+      { key: 'PATHAO_CLIENT_ID', value: pathaoClientId, group: 'COURIER' },
+      { key: 'PATHAO_CLIENT_SECRET', value: pathaoClientSecret, group: 'COURIER' },
+      { key: 'SMS_PROVIDER', value: smsProvider, group: 'SMS' },
+      { key: 'SMS_API_KEY', value: smsApiKey, group: 'SMS' },
+      { key: 'delivery_dhaka', value: dhakaShipping, group: 'SHIPPING' },
+      { key: 'delivery_outside', value: outsideDhakaShipping, group: 'SHIPPING' },
+      { key: 'free_shipping_threshold', value: freeShippingThreshold, group: 'SHIPPING' },
+    ]);
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -227,7 +319,19 @@ export const AdminSystem: React.FC = () => {
           }`}
         >
           <Sliders size={14} />
-          <span>Store Settings</span>
+          <span>Store Settings &amp; Integrations</span>
+        </button>
+
+        <button
+          onClick={() => handleTabChange('ip_blocker')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+            activeTab === 'ip_blocker'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <Shield size={14} />
+          <span>IP Blocking &amp; Firewall</span>
         </button>
 
         <button
@@ -268,73 +372,244 @@ export const AdminSystem: React.FC = () => {
       </div>
 
       {/* ========================================================================= */}
-      {/* TAB 1: STORE SETTINGS */}
+      {/* TAB 1: STORE SETTINGS & INTEGRATIONS */}
       {/* ========================================================================= */}
       {activeTab === 'settings' && (
-        <form onSubmit={handleSaveSettings} className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-5 max-w-3xl text-xs">
+        <form onSubmit={handleSaveSettings} className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6 max-w-4xl text-xs">
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
               <Building size={16} className="text-emerald-400" />
-              General Store & Checkout Configurations
+              General Brand, Channels &amp; API Credentials
             </h3>
             {saveSuccess && (
               <span className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
-                <CheckCircle2 size={12} /> Configurations Saved!
+                <CheckCircle2 size={12} /> Store Configurations Saved!
               </span>
             )}
           </div>
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-[11px] font-semibold text-slate-300 block mb-1">Store Legal Name</label>
-                <input
-                  type="text"
-                  value={storeName}
-                  onChange={(e) => setStoreName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-semibold text-slate-300 block mb-1">Currency Format</label>
-                <input
-                  type="text"
-                  value={currencySymbol}
-                  onChange={(e) => setCurrencySymbol(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-[11px] font-semibold text-slate-300 block mb-1">Customer Support Hotline</label>
-                <input
-                  type="text"
-                  value={supportPhone}
-                  onChange={(e) => setSupportPhone(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-semibold text-slate-300 block mb-1">Support Email Address</label>
-                <input
-                  type="email"
-                  value={supportEmail}
-                  onChange={(e) => setSupportEmail(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-800">
-              <h4 className="text-xs font-bold text-slate-200 mb-3 flex items-center gap-1.5">
-                <Truck size={14} className="text-blue-400" />
-                Default Delivery & Shipping Fee Rules
+          <div className="space-y-5">
+            {/* Section 1: Store Brand Info */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold text-slate-200 uppercase font-mono tracking-wider">
+                1. Store Brand &amp; Contact Details
               </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">Store Legal Name</label>
+                  <input
+                    type="text"
+                    value={storeName}
+                    onChange={(e) => setStoreName(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
 
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">Store Logo URL</label>
+                  <input
+                    type="text"
+                    value={storeLogoUrl}
+                    onChange={(e) => setStoreLogoUrl(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono text-[11px]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">Customer Support Phone</label>
+                  <input
+                    type="text"
+                    value={supportPhone}
+                    onChange={(e) => setSupportPhone(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">Support Email Address</label>
+                  <input
+                    type="email"
+                    value={supportEmail}
+                    onChange={(e) => setSupportEmail(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">Physical Store / Registered Office Address</label>
+                  <input
+                    type="text"
+                    value={storeAddress}
+                    onChange={(e) => setStoreAddress(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 2: Social Media & WhatsApp */}
+            <div className="pt-3 border-t border-slate-800 space-y-3">
+              <h4 className="text-xs font-bold text-slate-200 uppercase font-mono tracking-wider">
+                2. Social Channels &amp; WhatsApp Direct Support
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">Facebook Page URL</label>
+                  <input
+                    type="text"
+                    value={facebookUrl}
+                    onChange={(e) => setFacebookUrl(e.target.value)}
+                    placeholder="https://facebook.com/..."
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">Instagram URL</label>
+                  <input
+                    type="text"
+                    value={instagramUrl}
+                    onChange={(e) => setInstagramUrl(e.target.value)}
+                    placeholder="https://instagram.com/..."
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">WhatsApp Hotline (+880...)</label>
+                  <input
+                    type="text"
+                    value={whatsappNumber}
+                    onChange={(e) => setWhatsappNumber(e.target.value)}
+                    placeholder="+8801700000000"
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 3: Facebook Pixel & GA4 Analytics */}
+            <div className="pt-3 border-t border-slate-800 space-y-3">
+              <h4 className="text-xs font-bold text-slate-200 uppercase font-mono tracking-wider flex items-center gap-2">
+                <Sparkles size={14} className="text-amber-400" />
+                3. Facebook Pixel &amp; Google Analytics 4 (Zero-Code Dynamic Tracking)
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">GA4 Measurement ID (G-XXXXXXXX)</label>
+                  <input
+                    type="text"
+                    value={ga4Id}
+                    onChange={(e) => setGa4Id(e.target.value)}
+                    placeholder="e.g. G-SKINCAREBD123"
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">Facebook Pixel ID</label>
+                  <input
+                    type="text"
+                    value={fbPixelId}
+                    onChange={(e) => setFbPixelId(e.target.value)}
+                    placeholder="e.g. 987654321012345"
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 4: Courier API Credentials */}
+            <div className="pt-3 border-t border-slate-800 space-y-3">
+              <h4 className="text-xs font-bold text-slate-200 uppercase font-mono tracking-wider flex items-center gap-2">
+                <Truck size={14} className="text-blue-400" />
+                4. Steadfast &amp; Pathao Courier API Keys
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">Steadfast API Key</label>
+                  <input
+                    type="password"
+                    value={steadfastApiKey}
+                    onChange={(e) => setSteadfastApiKey(e.target.value)}
+                    placeholder="Paste Steadfast API Key"
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">Steadfast Secret Key</label>
+                  <input
+                    type="password"
+                    value={steadfastSecretKey}
+                    onChange={(e) => setSteadfastSecretKey(e.target.value)}
+                    placeholder="Paste Steadfast Secret Key"
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">Pathao Client ID</label>
+                  <input
+                    type="text"
+                    value={pathaoClientId}
+                    onChange={(e) => setPathaoClientId(e.target.value)}
+                    placeholder="Pathao OAuth Client ID"
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">Pathao Client Secret</label>
+                  <input
+                    type="password"
+                    value={pathaoClientSecret}
+                    onChange={(e) => setPathaoClientSecret(e.target.value)}
+                    placeholder="Pathao OAuth Client Secret"
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 5: Bangladesh SMS Provider */}
+            <div className="pt-3 border-t border-slate-800 space-y-3">
+              <h4 className="text-xs font-bold text-slate-200 uppercase font-mono tracking-wider flex items-center gap-2">
+                <Mail size={14} className="text-emerald-400" />
+                5. Bangladesh SMS Gateway (Greenweb / BulkSMSBD / MimSMS)
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">SMS Provider</label>
+                  <select
+                    value={smsProvider}
+                    onChange={(e) => setSmsProvider(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="GREENWEB">Greenweb BD Gateway</option>
+                    <option value="BULKSMSBD">BulkSMSBD Gateway</option>
+                    <option value="MIM_SMS">Mim SMS Gateway</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">SMS API Token / Key</label>
+                  <input
+                    type="password"
+                    value={smsApiKey}
+                    onChange={(e) => setSmsApiKey(e.target.value)}
+                    placeholder="Paste SMS Gateway API Token"
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 6: Shipping Rates */}
+            <div className="pt-3 border-t border-slate-800 space-y-3">
+              <h4 className="text-xs font-bold text-slate-200 uppercase font-mono tracking-wider">
+                6. Default Delivery Rates
+              </h4>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="text-[10px] font-semibold text-slate-400 block mb-1">Dhaka Metro Fee (৳)</label>
@@ -369,17 +644,156 @@ export const AdminSystem: React.FC = () => {
             </div>
           </div>
 
-          <div className="pt-3 border-t border-slate-800 flex justify-end">
+          <div className="pt-4 border-t border-slate-800 flex justify-end">
             <button
               type="submit"
-              disabled={settingMutation.isPending}
-              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold shadow-sm transition-all flex items-center gap-1.5"
+              disabled={batchSettingsMutation.isPending}
+              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold shadow-sm transition-all flex items-center gap-2"
             >
               <Save size={14} />
-              <span>{settingMutation.isPending ? 'Saving...' : 'Save Settings'}</span>
+              <span>{batchSettingsMutation.isPending ? 'Saving All Settings...' : 'Save All Settings'}</span>
             </button>
           </div>
         </form>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 2: IP BLOCKING & FIREWALL */}
+      {/* ========================================================================= */}
+      {activeTab === 'ip_blocker' && (
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl space-y-0">
+          <div className="p-4 bg-slate-950/60 border-b border-slate-800 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                <Shield size={16} className="text-rose-400" />
+                Backend IP Blocking &amp; Security Firewall
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Block suspicious or abusive IP addresses from placing orders or hitting API routes.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setIsAddIpOpen(true)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-semibold transition-colors"
+            >
+              <Shield size={13} />
+              <span>Add Blocked IP</span>
+            </button>
+          </div>
+
+          {isAddIpOpen && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!newBlockedIp.trim()) return;
+                addIpMutation.mutate({ ipAddress: newBlockedIp.trim(), reason: blockedReason });
+              }}
+              className="p-4 bg-slate-950/90 border-b border-slate-800 flex flex-col sm:flex-row items-end gap-3 text-xs"
+            >
+              <div className="w-full sm:w-64">
+                <label className="block text-slate-400 font-semibold mb-1">IP Address to Block *</label>
+                <input
+                  type="text"
+                  required
+                  value={newBlockedIp}
+                  onChange={(e) => setNewBlockedIp(e.target.value)}
+                  placeholder="e.g. 103.102.24.12"
+                  className="w-full bg-slate-900 border border-slate-800 text-slate-100 px-3 py-1.5 rounded-xl font-mono text-xs focus:outline-none focus:border-rose-500"
+                />
+              </div>
+
+              <div className="w-full sm:flex-1">
+                <label className="block text-slate-400 font-semibold mb-1">Reason (Optional)</label>
+                <input
+                  type="text"
+                  value={blockedReason}
+                  onChange={(e) => setBlockedReason(e.target.value)}
+                  placeholder="e.g. Fraudulent COD orders or bot spam"
+                  className="w-full bg-slate-900 border border-slate-800 text-slate-100 px-3 py-1.5 rounded-xl text-xs focus:outline-none focus:border-rose-500"
+                />
+              </div>
+
+              <div className="flex gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setIsAddIpOpen(false)}
+                  className="px-3 py-1.5 border border-slate-700 text-slate-300 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={addIpMutation.isPending}
+                  className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-xl"
+                >
+                  {addIpMutation.isPending ? 'Blocking...' : 'Block IP'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-950/70 border-b border-slate-800 text-slate-400 uppercase text-[10px] font-mono tracking-wider">
+                <tr>
+                  <th className="py-3.5 px-4">Blocked IP Address</th>
+                  <th className="py-3.5 px-3">Reason</th>
+                  <th className="py-3.5 px-3">Blocked Hits</th>
+                  <th className="py-3.5 px-3">Status</th>
+                  <th className="py-3.5 pr-4 pl-3 text-right">Actions</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-slate-800/60 font-mono text-[11px]">
+                {blockedIPs.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-slate-500 font-sans text-xs">
+                      No blocked IP addresses. All clean traffic allowed.
+                    </td>
+                  </tr>
+                ) : (
+                  blockedIPs.map((b: any) => (
+                    <tr key={b.id} className="hover:bg-slate-800/40 transition-colors">
+                      <td className="py-3 px-4 font-bold text-slate-200">{b.ipAddress}</td>
+                      <td className="py-3 px-3 font-sans text-slate-300">{b.reason || 'Restricted by admin'}</td>
+                      <td className="py-3 px-3 text-rose-400 font-bold">{b.hitCount || 0}</td>
+                      <td className="py-3 px-3 font-sans">
+                        {b.isActive ? (
+                          <span className="text-[11px] text-rose-400 font-semibold bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
+                            Enforced (403)
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 font-semibold bg-slate-800 px-2 py-0.5 rounded">
+                            Inactive
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 pr-4 pl-3 text-right space-x-2">
+                        <button
+                          onClick={() => toggleIpMutation.mutate({ id: b.id, isActive: !b.isActive })}
+                          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-sans"
+                        >
+                          {b.isActive ? 'Disable' : 'Enable'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm(`Remove IP ${b.ipAddress} from blocklist?`)) {
+                              deleteIpMutation.mutate(b.id);
+                            }
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-rose-950/80 hover:bg-rose-600 text-rose-400 hover:text-white text-[10px] font-sans transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
       {/* ========================================================================= */}

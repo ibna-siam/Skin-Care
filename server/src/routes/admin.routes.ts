@@ -18,7 +18,14 @@ import {
   adminExportCustomers,
   adminGetReviews,
   adminModerateReview,
+  adminCreateManualReview,
   adminDeleteReview,
+  adminCreateCourierShipment,
+  adminTrackCourierShipment,
+  adminGetBlockedIPs,
+  adminAddBlockedIP,
+  adminToggleBlockedIP,
+  adminDeleteBlockedIP,
   adminGetCoupons,
   adminCreateCoupon,
   adminUpdateCoupon,
@@ -57,6 +64,11 @@ import {
   adminGetAnalyticsOverview,
   adminGetStoreSettings,
   adminUpdateStoreSetting,
+  adminUpdateStoreSettingsBatch,
+  adminGetIntegrationSettings,
+  adminTestEmailConnection,
+  adminTestSmsConnection,
+  adminTestCourierConnection,
   adminGetActivityLogs,
   adminGetUsers,
   adminUpdateUserRole,
@@ -109,8 +121,19 @@ router.get('/customers/:id', adminGetCustomerDetail);
 
 // Reviews Moderation Hub
 router.get('/reviews', adminGetReviews);
-router.put('/reviews/:id/moderate', requireRole('SUPER_ADMIN', 'SUPPORT_STAFF', 'MARKETING_MANAGER'), adminModerateReview);
-router.delete('/reviews/:id', requireRole('SUPER_ADMIN', 'SUPPORT_STAFF', 'MARKETING_MANAGER'), adminDeleteReview);
+router.post('/reviews/manual', requireRole('SUPER_ADMIN', 'MARKETING_MANAGER', 'ADMIN'), adminCreateManualReview);
+router.put('/reviews/:id/moderate', requireRole('SUPER_ADMIN', 'SUPPORT_STAFF', 'MARKETING_MANAGER', 'ADMIN'), adminModerateReview);
+router.delete('/reviews/:id', requireRole('SUPER_ADMIN', 'SUPPORT_STAFF', 'MARKETING_MANAGER', 'ADMIN'), adminDeleteReview);
+
+// Courier Logistics Management (Steadfast & Pathao)
+router.post('/orders/:id/courier-shipment', requireRole('SUPER_ADMIN', 'ORDER_MANAGER', 'ADMIN'), adminCreateCourierShipment);
+router.get('/orders/:id/courier-track', adminTrackCourierShipment);
+
+// IP Blocking & Security Center
+router.get('/ip-blocker', requireRole('SUPER_ADMIN', 'ADMIN'), adminGetBlockedIPs);
+router.post('/ip-blocker', requireRole('SUPER_ADMIN', 'ADMIN'), adminAddBlockedIP);
+router.patch('/ip-blocker/:id/toggle', requireRole('SUPER_ADMIN', 'ADMIN'), adminToggleBlockedIP);
+router.delete('/ip-blocker/:id', requireRole('SUPER_ADMIN', 'ADMIN'), adminDeleteBlockedIP);
 
 // Coupons & Discounts
 router.get('/coupons', adminGetCoupons);
@@ -150,6 +173,11 @@ router.get('/analytics/overview', requireRole('SUPER_ADMIN', 'ADMIN', 'MARKETING
 
 // Operations & Store Settings
 router.get('/settings', adminGetStoreSettings);
+router.put('/settings/batch', requireRole('SUPER_ADMIN', 'ADMIN'), adminUpdateStoreSettingsBatch);
+router.get('/integrations/settings', requireRole('SUPER_ADMIN', 'ADMIN'), adminGetIntegrationSettings);
+router.post('/integrations/test-email', requireRole('SUPER_ADMIN', 'ADMIN'), adminTestEmailConnection);
+router.post('/integrations/test-sms', requireRole('SUPER_ADMIN', 'ADMIN'), adminTestSmsConnection);
+router.post('/integrations/test-courier', requireRole('SUPER_ADMIN', 'ADMIN'), adminTestCourierConnection);
 router.get('/users', requireRole('SUPER_ADMIN'), adminGetUsers);
 router.patch('/users/:id/role', requireRole('SUPER_ADMIN'), adminUpdateUserRole);
 

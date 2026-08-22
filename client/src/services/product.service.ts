@@ -17,6 +17,8 @@ export interface ProductQueryParams {
   search?: string;
   isBestSeller?: string;
   isFeatured?: string;
+  isNewArrival?: string;
+  isTrending?: string;
 }
 
 export const productService = {

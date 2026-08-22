@@ -25,6 +25,8 @@ export const productQuerySchema = z.object({
   search: z.string().optional(),
   isBestSeller: z.enum(['true', 'false']).optional(),
   isFeatured: z.enum(['true', 'false']).optional(),
+  isNewArrival: z.enum(['true', 'false']).optional(),
+  isTrending: z.enum(['true', 'false']).optional(),
 });
 
 export const createProductSchema = z.object({

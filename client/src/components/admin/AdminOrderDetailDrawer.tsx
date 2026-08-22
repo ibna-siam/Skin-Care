@@ -20,8 +20,12 @@ import {
   ShieldCheck,
   Save,
   Package,
+  Printer,
+  Send,
+  Activity
 } from 'lucide-react';
 import { formatBDT } from '@skincare/shared';
+import { InvoiceModal } from '../invoice/InvoiceModal';
 
 interface AdminOrderDetailDrawerProps {
   orderId: string | null;
@@ -55,6 +59,9 @@ export const AdminOrderDetailDrawer: React.FC<AdminOrderDetailDrawerProps> = ({
   const [courierName, setCourierName] = useState<string>('');
   const [trackingNumber, setTrackingNumber] = useState<string>('');
   const [estimatedDelivery, setEstimatedDelivery] = useState<string>('');
+  const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
+  const [liveTrackingInfo, setLiveTrackingInfo] = useState<any>(null);
+  const [isTrackingLoading, setIsTrackingLoading] = useState(false);
 
   const { data: order, isLoading, isError } = useQuery({
     queryKey: ['admin-order-detail', orderId],
@@ -70,6 +77,7 @@ export const AdminOrderDetailDrawer: React.FC<AdminOrderDetailDrawerProps> = ({
       setTrackingNumber(order.trackingNumber || '');
       setEstimatedDelivery(order.estimatedDelivery || '');
       setStatusNote('');
+      setLiveTrackingInfo(null);
     }
   }, [order]);
 
@@ -81,6 +89,31 @@ export const AdminOrderDetailDrawer: React.FC<AdminOrderDetailDrawerProps> = ({
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
     },
   });
+
+  const courierDispatchMutation = useMutation({
+    mutationFn: (selectedCourier: string) => adminService.createCourierShipment(orderId!, selectedCourier),
+    onSuccess: (data) => {
+      alert(`Courier shipment dispatched successfully with tracking code: ${data.data?.shipment?.trackingNumber || 'Created'}`);
+      queryClient.invalidateQueries({ queryKey: ['admin-order-detail', orderId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+    },
+    onError: (err: any) => {
+      alert(`Courier dispatch error: ${err.message || 'Check courier API credentials in Settings'}`);
+    },
+  });
+
+  const handleFetchLiveTracking = async () => {
+    if (!orderId) return;
+    setIsTrackingLoading(true);
+    try {
+      const data = await adminService.trackCourierShipment(orderId);
+      setLiveTrackingInfo(data?.tracking || data);
+    } catch (err: any) {
+      alert(err.message || 'Could not query courier tracking API');
+    } finally {
+      setIsTrackingLoading(false);
+    }
+  };
 
   const handleSaveStatus = (e: React.FormEvent) => {
     e.preventDefault();
@@ -245,7 +278,16 @@ export const AdminOrderDetailDrawer: React.FC<AdminOrderDetailDrawerProps> = ({
                       />
                     </div>
 
-                    <div className="flex justify-end pt-1">
+                    <div className="flex items-center justify-between pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setIsInvoiceOpen(true)}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition-colors"
+                      >
+                        <Printer size={14} className="text-emerald-400" />
+                        <span>Print Official Invoice</span>
+                      </button>
+
                       <button
                         type="submit"
                         disabled={updateMutation.isPending}
@@ -257,6 +299,72 @@ export const AdminOrderDetailDrawer: React.FC<AdminOrderDetailDrawerProps> = ({
                     </div>
                   </form>
                 </div>
+
+                {/* Courier Logistics API Dispatch Action Card */}
+                <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-200 uppercase tracking-wider font-mono">
+                      <Truck size={14} className="text-emerald-400" />
+                      <span>One-Click Courier Dispatch & Live Tracking</span>
+                    </div>
+                    {order.trackingNumber && (
+                      <span className="font-mono text-[11px] text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800">
+                        {order.courierName || 'Courier'}: {order.trackingNumber}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      disabled={courierDispatchMutation.isPending}
+                      onClick={() => courierDispatchMutation.mutate('Steadfast')}
+                      className="flex items-center justify-center gap-2 py-2.5 px-4 bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-emerald-500/50 text-slate-100 rounded-xl text-xs font-semibold transition-all disabled:opacity-50"
+                    >
+                      <Send size={13} className="text-emerald-400" />
+                      <span>Dispatch to Steadfast API</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={courierDispatchMutation.isPending}
+                      onClick={() => courierDispatchMutation.mutate('Pathao')}
+                      className="flex items-center justify-center gap-2 py-2.5 px-4 bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-emerald-500/50 text-slate-100 rounded-xl text-xs font-semibold transition-all disabled:opacity-50"
+                    >
+                      <Send size={13} className="text-red-400" />
+                      <span>Dispatch to Pathao API</span>
+                    </button>
+                  </div>
+
+                  {order.trackingNumber && (
+                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+                      <button
+                        type="button"
+                        disabled={isTrackingLoading}
+                        onClick={handleFetchLiveTracking}
+                        className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-semibold"
+                      >
+                        <Activity size={13} />
+                        <span>{isTrackingLoading ? 'Querying Courier API...' : 'Check Live Tracking Status'}</span>
+                      </button>
+
+                      {liveTrackingInfo && (
+                        <div className="text-right text-xs">
+                          <span className="text-slate-400">Live Status: </span>
+                          <span className="font-bold text-emerald-400 uppercase font-mono">
+                            {liveTrackingInfo.status || liveTrackingInfo.currentLocation || 'In Transit'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <InvoiceModal
+                  order={order}
+                  isOpen={isInvoiceOpen}
+                  onClose={() => setIsInvoiceOpen(false)}
+                />
 
                 {/* Customer & Shipping Details */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

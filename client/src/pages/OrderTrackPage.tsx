@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { orderService } from '../services/order.service';
 import { Order, formatBDT } from '@skincare/shared';
+import { InvoiceModal } from '../components/invoice/InvoiceModal';
 import {
   Truck,
   Search,
@@ -11,7 +12,8 @@ import {
   MapPin,
   Phone,
   AlertCircle,
-  FileText
+  FileText,
+  Printer
 } from 'lucide-react';
 
 export const OrderTrackPage: React.FC = () => {
@@ -24,6 +26,7 @@ export const OrderTrackPage: React.FC = () => {
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
 
   const fetchTracking = async (ordNum: string, ph: string) => {
     if (!ordNum.trim() || !ph.trim()) return;
@@ -91,6 +94,18 @@ export const OrderTrackPage: React.FC = () => {
           Enter your Order ID (e.g. SKN10245) and the Bangladeshi phone number used during checkout.
         </p>
       </div>
+
+      {searchParams.get('payment') === 'success' && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-800 animate-in fade-in">
+          <CheckCircle2 size={22} className="text-emerald-600 shrink-0" />
+          <div>
+            <p className="text-sm font-bold">🎉 Payment Successful &amp; Order Confirmed!</p>
+            <p className="text-xs text-emerald-700 mt-0.5">
+              Thank you! Your payment has been verified. We have sent a confirmation message to your mobile number.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Query Form */}
       <div className="bg-white rounded-3xl border border-cream-300 p-6 sm:p-8 shadow-sm">
@@ -244,11 +259,25 @@ export const OrderTrackPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Total */}
-          <div className="pt-4 border-t border-gray-100 flex justify-between items-baseline">
-            <span className="text-sm font-bold text-charcoal-900">Total Amount:</span>
-            <span className="text-2xl font-bold text-brand-900">{formatBDT(order.totalAmount)}</span>
+          {/* Total & Action Bar */}
+          <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-baseline gap-2">
+              <span className="text-sm font-bold text-charcoal-900">Total Amount:</span>
+              <span className="text-2xl font-bold text-brand-900">{formatBDT(order.totalAmount)}</span>
+            </div>
+            <button
+              onClick={() => setIsInvoiceOpen(true)}
+              className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-sm transition-colors"
+            >
+              <Printer size={15} /> Download / Print Invoice
+            </button>
           </div>
+
+          <InvoiceModal
+            order={order}
+            isOpen={isInvoiceOpen}
+            onClose={() => setIsInvoiceOpen(false)}
+          />
         </div>
       )}
     </div>

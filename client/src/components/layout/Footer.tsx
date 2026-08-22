@@ -1,8 +1,19 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Facebook, Instagram, Twitter, ShieldCheck, Truck, Clock, Sparkles } from 'lucide-react';
+import { Facebook, Instagram, Twitter, ShieldCheck, Truck, Clock, Sparkles, Phone, Mail, MapPin } from 'lucide-react';
+import { useStoreSettingsStore } from '../../stores/storeSettingsStore';
 
 export const Footer: React.FC = () => {
+  const getSetting = useStoreSettingsStore((state) => state.getSetting);
+
+  const storeName = getSetting('STORE_NAME', 'Skincare Bangladesh');
+  const supportEmail = getSetting('SUPPORT_EMAIL', 'support@skincare.com.bd');
+  const supportPhone = getSetting('SUPPORT_PHONE', '+880 1711-223344');
+  const storeAddress = getSetting('STORE_ADDRESS', 'House 42, Road 11, Banani, Dhaka-1213, Bangladesh');
+  const facebookUrl = getSetting('FACEBOOK_URL', 'https://facebook.com/skincarebd');
+  const instagramUrl = getSetting('INSTAGRAM_URL', 'https://instagram.com/skincarebd');
+  const tagline = getSetting('FOOTER_TAGLINE', 'Your trusted source for authentic skincare products in Bangladesh. 100% genuine formulations from global dermatology brands.');
+
   return (
     <footer className="bg-cream-100 border-t border-cream-300/80 pt-16 pb-12 mt-20 text-charcoal-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -11,11 +22,11 @@ export const Footer: React.FC = () => {
           <div className="space-y-4">
             <Link to="/" className="inline-block">
               <span className="font-serif italic text-3xl font-bold text-brand-800 tracking-tight">
-                Skincare
+                {storeName}
               </span>
             </Link>
             <p className="text-sm text-gray-600 leading-relaxed max-w-xs">
-              Your trusted source for authentic skincare products in Bangladesh. 100% genuine formulations from global dermatology brands.
+              {tagline}
             </p>
             <div className="flex items-center gap-2 text-xs font-semibold text-brand-800">
               <ShieldCheck size={16} /> 100% Genuine Guaranteed
@@ -98,31 +109,31 @@ export const Footer: React.FC = () => {
           {/* Column 4: Contact Us */}
           <div className="space-y-4">
             <h4 className="font-semibold text-sm uppercase tracking-wider text-charcoal-800 mb-4">
-              Contact Us
+              Contact Channels
             </h4>
             <div className="space-y-2 text-sm text-gray-600">
               <p>
                 <span className="font-medium text-charcoal-800">Email:</span>{' '}
-                <a href="mailto:info@skincarestars.com" className="hover:text-brand-800">
-                  info@skincarestars.com
+                <a href={`mailto:${supportEmail}`} className="hover:text-brand-800">
+                  {supportEmail}
                 </a>
               </p>
               <p>
                 <span className="font-medium text-charcoal-800">Phone:</span>{' '}
-                <a href="tel:+8801234567890" className="hover:text-brand-800">
-                  +880 123 456 7890
+                <a href={`tel:${supportPhone}`} className="hover:text-brand-800">
+                  {supportPhone}
                 </a>
               </p>
               <p>
                 <span className="font-medium text-charcoal-800">Location:</span>{' '}
-                Gulshan-2, Dhaka-1212, Bangladesh
+                {storeAddress}
               </p>
             </div>
 
-            {/* Social icons matching reference design */}
+            {/* Social icons */}
             <div className="flex items-center gap-3 pt-2">
               <a
-                href="https://facebook.com"
+                href={facebookUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="w-9 h-9 rounded-lg bg-[#3b5998] text-white flex items-center justify-center hover:opacity-90 transition-opacity"
@@ -131,7 +142,7 @@ export const Footer: React.FC = () => {
                 <Facebook size={18} />
               </a>
               <a
-                href="https://instagram.com"
+                href={instagramUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="w-9 h-9 rounded-lg bg-[#E1306C] text-white flex items-center justify-center hover:opacity-90 transition-opacity"
@@ -139,27 +150,17 @@ export const Footer: React.FC = () => {
               >
                 <Instagram size={18} />
               </a>
-              <a
-                href="https://twitter.com"
-                target="_blank"
-                rel="noreferrer"
-                className="w-9 h-9 rounded-lg bg-[#1DA1F2] text-white flex items-center justify-center hover:opacity-90 transition-opacity"
-                aria-label="Twitter"
-              >
-                <Twitter size={18} />
-              </a>
             </div>
           </div>
         </div>
 
         {/* Bottom copyright and payment methods */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-500">
-          <p>© {new Date().getFullYear()} Skincare Bangladesh. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} {storeName}. All rights reserved.</p>
           <div className="flex items-center gap-4 text-xs">
             <span className="font-medium text-charcoal-800">Accepted in BD:</span>
             <span className="bg-white px-2 py-1 rounded border border-gray-200 font-semibold text-emerald-800">Cash on Delivery</span>
             <span className="bg-white px-2 py-1 rounded border border-gray-200 font-semibold text-pink-700">bKash</span>
-            <span className="bg-white px-2 py-1 rounded border border-gray-200 font-semibold text-orange-600">Nagad</span>
             <span className="bg-white px-2 py-1 rounded border border-gray-200 font-semibold text-blue-700">SSLCommerz</span>
           </div>
         </div>

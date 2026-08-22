@@ -54,4 +54,11 @@ export const orderService = {
     const res = await api.get<ApiResponse<any[]>>('/cms/homepage');
     return res.data.data || [];
   },
+
+  async getPublicBanners(position?: string) {
+    const res = await api.get<ApiResponse<any[]>>('/banners', {
+      params: position ? { position } : undefined,
+    });
+    return res.data.data || [];
+  },
 };

@@ -21,6 +21,11 @@ export const cartService = {
     const res = await api.delete<ApiResponse>(`/cart/items/${id}`);
     return res.data;
   },
+
+  async clearCart() {
+    const res = await api.post<ApiResponse>('/cart/clear');
+    return res.data;
+  },
 };
 
 export const wishlistService = {

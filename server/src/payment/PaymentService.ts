@@ -4,6 +4,7 @@ import { CODProvider } from './CODProvider.js';
 import { BKashProvider } from './BKashProvider.js';
 import { NagadProvider } from './NagadProvider.js';
 import { SSLCommerzProvider } from './SSLCommerzProvider.js';
+import { ManualPaymentProvider } from './ManualPaymentProvider.js';
 
 export class PaymentService {
   private static providers: Map<PaymentMethod, PaymentProvider> = new Map<PaymentMethod, PaymentProvider>([
@@ -12,6 +13,7 @@ export class PaymentService {
     ['NAGAD', new NagadProvider()],
     ['SSLCOMMERZ', new SSLCommerzProvider()],
     ['CARD', new SSLCommerzProvider()],
+    ['MANUAL' as any, new ManualPaymentProvider()],
   ]);
 
   static getProvider(method: PaymentMethod): PaymentProvider {

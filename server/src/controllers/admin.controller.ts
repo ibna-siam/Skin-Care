@@ -4,6 +4,9 @@ import { sendSuccess, sendError } from '../utils/response.js';
 import { createProductSchema } from '../validators/product.validator.js';
 import { updateOrderStatusSchema } from '../validators/order.validator.js';
 import { createCouponSchema } from '../validators/coupon.validator.js';
+import { EmailNotificationService } from '../notifications/email.service.js';
+import { SMSNotificationService } from '../notifications/sms.service.js';
+import { CourierService } from '../courier/CourierService.js';
 
 export async function getDashboardStats(req: Request, res: Response, next: NextFunction) {
   try {
@@ -392,6 +395,8 @@ export async function adminGetProducts(req: Request, res: Response, next: NextFu
           brand: true,
           category: true,
           images: { orderBy: { sortOrder: 'asc' } },
+          skinTypes: { include: { skinType: true } },
+          skinConcerns: { include: { skinConcern: true } },
         },
       }),
       prisma.product.groupBy({
@@ -407,7 +412,13 @@ export async function adminGetProducts(req: Request, res: Response, next: NextFu
       countsMap[sc.status] = sc._count.id;
     });
 
-    return sendSuccess(res, products, 'Products retrieved', 200, {
+    const formattedProducts = products.map((p) => ({
+      ...p,
+      skinTypes: p.skinTypes.map((st) => st.skinType),
+      skinConcerns: p.skinConcerns.map((sc) => sc.skinConcern),
+    }));
+
+    return sendSuccess(res, formattedProducts, 'Products retrieved', 200, {
       page,
       limit,
       total,
@@ -426,20 +437,15 @@ export async function adminUpdateProductStock(req: Request, res: Response, next:
     const id = req.params.id as string;
     const { stock, lowStockThreshold } = req.body;
 
-    if (stock === undefined || isNaN(parseInt(stock, 10))) {
-      return sendError(res, 'Valid stock number is required', 400);
-    }
-
     const updated = await prisma.product.update({
       where: { id },
       data: {
-        stock: parseInt(stock, 10),
+        stock: stock !== undefined ? parseInt(stock, 10) : undefined,
         lowStockThreshold: lowStockThreshold !== undefined ? parseInt(lowStockThreshold, 10) : undefined,
       },
-      include: { brand: true, category: true, images: { take: 1 } },
     });
 
-    return sendSuccess(res, updated, 'Product stock updated successfully');
+    return sendSuccess(res, updated, 'Stock updated successfully');
   } catch (error) {
     next(error);
   }
@@ -567,10 +573,18 @@ export async function adminCreateProduct(req: Request, res: Response, next: Next
         brand: true,
         category: true,
         images: true,
+        skinTypes: { include: { skinType: true } },
+        skinConcerns: { include: { skinConcern: true } },
       },
     });
 
-    return sendSuccess(res, product, 'Product created successfully', 201);
+    const formatted = {
+      ...product,
+      skinTypes: product.skinTypes.map((st) => st.skinType),
+      skinConcerns: product.skinConcerns.map((sc) => sc.skinConcern),
+    };
+
+    return sendSuccess(res, formatted, 'Product created successfully', 201);
   } catch (error) {
     next(error);
   }
@@ -590,6 +604,7 @@ export async function adminUpdateProduct(req: Request, res: Response, next: Next
       compareAtPrice: body.compareAtPrice !== undefined ? (body.compareAtPrice ? parseFloat(body.compareAtPrice) : null) : undefined,
       sku: body.sku,
       stock: body.stock !== undefined ? parseInt(body.stock, 10) : undefined,
+      lowStockThreshold: body.lowStockThreshold !== undefined ? parseInt(body.lowStockThreshold, 10) : undefined,
       status: body.status,
       description: body.description,
       shortDescription: body.shortDescription,
@@ -599,8 +614,14 @@ export async function adminUpdateProduct(req: Request, res: Response, next: Next
       ingredients: body.ingredients,
       benefits: body.benefits,
       howToUse: body.howToUse,
-      isFeatured: body.isFeatured,
-      isBestSeller: body.isBestSeller,
+      countryOfOrigin: body.countryOfOrigin,
+      expiryInformation: body.expiryInformation,
+      weight: body.weight,
+      volume: body.volume,
+      isFeatured: body.isFeatured !== undefined ? Boolean(body.isFeatured) : undefined,
+      isBestSeller: body.isBestSeller !== undefined ? Boolean(body.isBestSeller) : undefined,
+      isNewArrival: body.isNewArrival !== undefined ? Boolean(body.isNewArrival) : undefined,
+      isTrending: body.isTrending !== undefined ? Boolean(body.isTrending) : undefined,
       badge: body.badge,
     };
 
@@ -611,7 +632,7 @@ export async function adminUpdateProduct(req: Request, res: Response, next: Next
       });
       updateData.images = {
         create: body.images.map((img: any, idx: number) => ({
-          url: img.url,
+          url: typeof img === 'string' ? img : img.url,
           altText: img.altText || body.name || existing.name,
           sortOrder: img.sortOrder ?? idx,
           isPrimary: img.isPrimary ?? (idx === 0),
@@ -619,14 +640,52 @@ export async function adminUpdateProduct(req: Request, res: Response, next: Next
       };
     }
 
+    // Sync Skin Types
+    if (Array.isArray(body.skinTypeIds)) {
+      await prisma.productSkinType.deleteMany({ where: { productId: id } });
+      if (body.skinTypeIds.length > 0) {
+        await prisma.productSkinType.createMany({
+          data: body.skinTypeIds.map((skinTypeId: string) => ({
+            productId: id,
+            skinTypeId,
+          })),
+        });
+      }
+    }
+
+    // Sync Skin Concerns
+    if (Array.isArray(body.skinConcernIds)) {
+      await prisma.productSkinConcern.deleteMany({ where: { productId: id } });
+      if (body.skinConcernIds.length > 0) {
+        await prisma.productSkinConcern.createMany({
+          data: body.skinConcernIds.map((skinConcernId: string) => ({
+            productId: id,
+            skinConcernId,
+          })),
+        });
+      }
+    }
+
     // Update product core fields
     const updated = await prisma.product.update({
       where: { id },
       data: updateData,
-      include: { brand: true, category: true, images: true },
+      include: {
+        brand: true,
+        category: true,
+        images: { orderBy: { sortOrder: 'asc' } },
+        skinTypes: { include: { skinType: true } },
+        skinConcerns: { include: { skinConcern: true } },
+      },
     });
 
-    return sendSuccess(res, updated, 'Product updated successfully');
+    const formatted = {
+      ...updated,
+      skinTypes: updated.skinTypes.map((st) => st.skinType),
+      skinConcerns: updated.skinConcerns.map((sc) => sc.skinConcern),
+    };
+
+    return sendSuccess(res, formatted, 'Product updated successfully');
   } catch (error) {
     next(error);
   }
@@ -2326,4 +2385,340 @@ export async function adminUpdateUserRole(req: Request, res: Response, next: Nex
     next(error);
   }
 }
+
+// ----------------- REVIEWS MODERATION & CREATION -----------------
+
+export async function adminCreateManualReview(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { productId, userName, rating, title, comment, isVerifiedPurchase = true, isFeatured = false, images = [] } = req.body;
+    if (!productId || !userName || !rating || !title || !comment) {
+      return sendError(res, 'Product ID, customer name, rating, title, and comment are required', 400);
+    }
+
+    // Default to first admin user if not attached
+    const adminUserId = req.user?.userId || (await prisma.user.findFirst({ where: { role: 'SUPER_ADMIN' } }))?.id;
+    if (!adminUserId) return sendError(res, 'System admin profile required', 400);
+
+    const review = await prisma.review.create({
+      data: {
+        productId,
+        userId: adminUserId,
+        userName,
+        rating: Math.min(5, Math.max(1, parseInt(rating, 10))),
+        title,
+        comment,
+        isVerifiedPurchase: Boolean(isVerifiedPurchase),
+        isFeatured: Boolean(isFeatured),
+        status: 'APPROVED',
+        images: images.length ? { create: images.map((url: string) => ({ url })) } : undefined,
+      },
+      include: { product: true, images: true },
+    });
+
+    // Update Product statistics
+    const stats = await prisma.review.aggregate({
+      where: { productId, status: 'APPROVED' },
+      _avg: { rating: true },
+      _count: { rating: true },
+    });
+    await prisma.product.update({
+      where: { id: productId },
+      data: {
+        averageRating: Number(((stats._avg && stats._avg.rating) || 5).toFixed(1)),
+        reviewCount: (stats._count && typeof stats._count === 'object' && 'rating' in stats._count ? stats._count.rating : 1),
+      },
+    });
+
+    return sendSuccess(res, review, 'Manual verified review created', 201);
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ----------------- COURIER SHIPMENTS (SteadFast & Pathao) -----------------
+
+export async function adminCreateCourierShipment(req: Request, res: Response, next: NextFunction) {
+  try {
+    const orderId = req.params.id as string;
+    const { courierName = 'Steadfast' } = req.body;
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: true },
+    });
+
+    if (!order) return sendError(res, 'Order not found', 404);
+
+    const provider = await CourierService.getProvider(courierName);
+    const amountToCollect = order.paymentStatus === 'PAID' ? 0 : order.totalAmount;
+    const itemDesc = order.items.map((i) => `${i.productName} (x${i.quantity})`).join(', ');
+
+    const result = await provider.createShipment({
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      customerAddress: order.fullAddress,
+      cityDistrict: order.district,
+      amountToCollect,
+      itemDescription: itemDesc,
+      notes: order.notes || '',
+    });
+
+    if (!result.success && result.status !== 'UNCONFIGURED') {
+      return sendError(res, result.message || 'Courier API shipment creation failed', 400);
+    }
+
+    // Save or update Shipment record
+    const trackingCode = result.trackingCode || `TRK-${Date.now().toString().slice(-6)}`;
+    const shipment = await prisma.shipment.upsert({
+      where: { trackingNumber: trackingCode },
+      update: {
+        courierName: result.courierName || courierName,
+        consignmentId: result.consignmentId,
+        courierFee: result.courierFee,
+        shippingStatus: 'CREATED',
+        rawResponse: JSON.stringify(result.rawResponse || {}),
+        shippedAt: new Date(),
+      },
+      create: {
+        orderId: order.id,
+        courierName: result.courierName || courierName,
+        trackingNumber: trackingCode,
+        consignmentId: result.consignmentId,
+        courierFee: result.courierFee,
+        shippingStatus: 'CREATED',
+        rawResponse: JSON.stringify(result.rawResponse || {}),
+        shippedAt: new Date(),
+      },
+    });
+
+    // Update order status to SHIPPED and record timeline
+    await prisma.$transaction([
+      prisma.order.update({
+        where: { id: order.id },
+        data: {
+          orderStatus: 'SHIPPED',
+          trackingNumber: trackingCode,
+          courierName: result.courierName || courierName,
+        },
+      }),
+      prisma.orderTimeline.create({
+        data: {
+          orderId: order.id,
+          status: 'SHIPPED',
+          note: `Handed over to ${result.courierName || courierName}. Tracking Code: ${trackingCode}`,
+        },
+      }),
+    ]);
+
+    // Dispatch SMS notification to customer
+    SMSNotificationService.sendOrderShipped({
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      orderNumber: order.orderNumber,
+      trackingCode,
+      courierName: result.courierName || courierName,
+    }).catch(() => {});
+
+    return sendSuccess(res, { shipment, courierResult: result }, `Shipment created with ${result.courierName}`);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminTrackCourierShipment(req: Request, res: Response, next: NextFunction) {
+  try {
+    const orderId = req.params.id as string;
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { shipments: { take: 1, orderBy: { createdAt: 'desc' } } },
+    });
+
+    if (!order) return sendError(res, 'Order not found', 404);
+
+    const trackingCode = order.trackingNumber || order.shipments[0]?.trackingNumber;
+    if (!trackingCode) {
+      return sendError(res, 'No tracking code found for this order', 400);
+    }
+
+    const courierName = order.courierName || order.shipments[0]?.courierName || 'Steadfast';
+    const provider = await CourierService.getProvider(courierName);
+    const tracking = await provider.trackShipment(trackingCode);
+
+    return sendSuccess(res, { tracking, orderNumber: order.orderNumber, trackingCode });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ----------------- IP BLOCKING SYSTEM -----------------
+import { refreshBlockedIPCache } from '../middleware/ipBlocker.js';
+
+export async function adminGetBlockedIPs(req: Request, res: Response, next: NextFunction) {
+  try {
+    const blockedList = await prisma.blockedIP.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+    return sendSuccess(res, blockedList);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminAddBlockedIP(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { ipAddress, reason } = req.body;
+    if (!ipAddress) return sendError(res, 'IP Address is required', 400);
+
+    const cleanIp = String(ipAddress).trim();
+    const blocked = await prisma.blockedIP.upsert({
+      where: { ipAddress: cleanIp },
+      update: { reason: reason || 'Restricted by admin', isActive: true },
+      create: { ipAddress: cleanIp, reason: reason || 'Restricted by admin', isActive: true },
+    });
+
+    await refreshBlockedIPCache();
+    return sendSuccess(res, blocked, `IP ${cleanIp} added to blocklist`, 201);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminToggleBlockedIP(req: Request, res: Response, next: NextFunction) {
+  try {
+    const id = req.params.id as string;
+    const { isActive } = req.body;
+
+    const blocked = await prisma.blockedIP.update({
+      where: { id },
+      data: { isActive: Boolean(isActive) },
+    });
+
+    await refreshBlockedIPCache();
+    return sendSuccess(res, blocked, `IP status updated`);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminDeleteBlockedIP(req: Request, res: Response, next: NextFunction) {
+  try {
+    const id = req.params.id as string;
+    await prisma.blockedIP.delete({ where: { id } });
+    await refreshBlockedIPCache();
+    return sendSuccess(res, null, 'IP removed from blocklist');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminUpdateStoreSettingsBatch(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { settings } = req.body; // Array of { key, value, group }
+    if (!Array.isArray(settings)) return sendError(res, 'Array of settings required', 400);
+
+    const sanitizedMap = new Map<string, { key: string; value: string; group: string }>();
+
+    for (const item of settings) {
+      if (item && typeof item === 'object' && item.key) {
+        const cleanKey = String(item.key).trim();
+        if (cleanKey.length > 0) {
+          sanitizedMap.set(cleanKey, {
+            key: cleanKey,
+            value: item.value !== undefined && item.value !== null ? String(item.value) : '',
+            group: item.group ? String(item.group).trim().toUpperCase() : 'GENERAL',
+          });
+        }
+      }
+    }
+
+    const cleanItems = Array.from(sanitizedMap.values());
+    if (cleanItems.length === 0) {
+      return sendSuccess(res, [], 'No settings to update');
+    }
+
+    const results = await prisma.$transaction(
+      cleanItems.map((s) =>
+        prisma.storeSetting.upsert({
+          where: { key: s.key },
+          update: { value: s.value, group: s.group },
+          create: { key: s.key, value: s.value, group: s.group },
+        })
+      )
+    );
+
+    return sendSuccess(res, results, 'Store settings updated successfully');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminGetIntegrationSettings(req: Request, res: Response, next: NextFunction) {
+  try {
+    const settings = await prisma.storeSetting.findMany({
+      orderBy: { key: 'asc' },
+    });
+
+    const settingsMap: Record<string, string> = {};
+    settings.forEach((s) => {
+      settingsMap[s.key] = s.value;
+    });
+
+    return sendSuccess(res, {
+      settings: settingsMap,
+      raw: settings,
+    }, 'Integration settings retrieved');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminTestEmailConnection(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { email } = req.body;
+    const toEmail = email || req.user?.email || 'admin@skincare.com.bd';
+
+    const result = await EmailNotificationService.testConnection(toEmail);
+    if (!result.success) {
+      return sendError(res, result.message, 400);
+    }
+
+    return sendSuccess(res, result, result.message);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminTestSmsConnection(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { phone, message } = req.body;
+    if (!phone) return sendError(res, 'Recipient phone number required', 400);
+
+    const testMsg = message || 'Test SMS notification from Skincare BD Admin Gateway. System credentials operational.';
+    const result = await SMSNotificationService.sendSMS(phone, testMsg);
+
+    return sendSuccess(res, result, result.message);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminTestCourierConnection(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { courierName = 'Steadfast' } = req.body;
+    const provider = await CourierService.getProvider(courierName);
+
+    // Ping tracking for a test/dummy code or check credentials
+    const testResult = await provider.trackShipment('TEST-PING-001');
+    return sendSuccess(res, {
+      provider: courierName,
+      status: testResult.status || 'READY',
+      connected: true,
+    }, `${courierName} API credentials verified`);
+  } catch (error: any) {
+    return sendError(res, error.message || 'Courier API connection test failed', 400);
+  }
+}
+
 

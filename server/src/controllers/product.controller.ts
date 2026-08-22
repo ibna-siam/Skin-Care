@@ -22,6 +22,8 @@ export async function getProducts(req: Request, res: Response, next: NextFunctio
       search,
       isBestSeller,
       isFeatured,
+      isNewArrival,
+      isTrending,
     } = query;
 
     const skip = (page - 1) * limit;
@@ -67,7 +69,7 @@ export async function getProducts(req: Request, res: Response, next: NextFunctio
     }
 
     if (gender && gender !== 'ALL') {
-      where.gender = { in: [gender, 'ALL', 'UNISEX'] };
+      where.gender = { in: [gender, 'UNISEX'] };
     }
 
     if (minPrice !== undefined || maxPrice !== undefined) {
@@ -90,6 +92,14 @@ export async function getProducts(req: Request, res: Response, next: NextFunctio
 
     if (isFeatured === 'true') {
       where.isFeatured = true;
+    }
+
+    if (isNewArrival === 'true') {
+      where.isNewArrival = true;
+    }
+
+    if (isTrending === 'true') {
+      where.isTrending = true;
     }
 
     let orderBy: any = { createdAt: 'desc' };

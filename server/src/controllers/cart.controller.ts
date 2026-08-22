@@ -174,3 +174,25 @@ export async function removeCartItem(req: Request, res: Response, next: NextFunc
     next(error);
   }
 }
+
+export async function clearCart(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user?.userId;
+    const sessionId = (req.headers['x-session-id'] as string) || req.body?.sessionId || (req.query?.sessionId as string);
+
+    if (userId || sessionId) {
+      const cart = await prisma.cart.findFirst({
+        where: userId ? { userId } : { sessionId },
+      });
+      if (cart) {
+        await prisma.cartItem.deleteMany({
+          where: { cartId: cart.id },
+        });
+      }
+    }
+
+    return sendSuccess(res, { items: [], subtotal: 0, count: 0 }, 'Cart cleared successfully');
+  } catch (error) {
+    next(error);
+  }
+}

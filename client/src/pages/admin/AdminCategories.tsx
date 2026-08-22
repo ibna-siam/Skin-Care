@@ -13,6 +13,7 @@ import {
   Sparkles,
   RefreshCw,
   AlertTriangle,
+  Upload,
 } from 'lucide-react';
 
 export const AdminCategories: React.FC = () => {
@@ -30,6 +31,7 @@ export const AdminCategories: React.FC = () => {
   const [sortOrder, setSortOrder] = useState('0');
   const [isFeatured, setIsFeatured] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Fetch Categories
   const { data: categories = [], isLoading, isFetching, refetch } = useQuery({
@@ -390,19 +392,85 @@ export const AdminCategories: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">Category Cover Image URL</label>
-                  <input
-                    type="url"
-                    value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
-                    placeholder="https://..."
-                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500"
-                  />
+              <div>
+                <label className="text-[11px] font-semibold text-slate-300 block mb-1">Category Image &amp; Banner</label>
+                <div className="space-y-2">
+                  {imageUrl ? (
+                    <div className="flex items-center gap-3 bg-slate-950 p-2.5 rounded-2xl border border-slate-800">
+                      <img src={imageUrl} alt={name || 'Category'} className="w-16 h-16 rounded-xl object-cover border border-slate-700 shrink-0" />
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <p className="text-[11px] text-slate-300 truncate font-mono">{imageUrl}</p>
+                        <div className="flex items-center gap-2">
+                          <label className="cursor-pointer px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 text-[10px] font-semibold transition-colors">
+                            {isUploadingImage ? 'Uploading...' : 'Replace Image'}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              disabled={isUploadingImage}
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                setIsUploadingImage(true);
+                                try {
+                                  const url = await adminService.uploadImage(file, 'categories');
+                                  if (url) setImageUrl(url);
+                                } catch (err: any) {
+                                  alert(err.message || 'Upload failed');
+                                } finally {
+                                  setIsUploadingImage(false);
+                                }
+                              }}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setImageUrl('')}
+                            className="px-2.5 py-1 rounded-lg bg-rose-500/15 text-rose-400 border border-rose-500/30 hover:bg-rose-500/25 text-[10px] font-semibold transition-colors"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <label className="cursor-pointer flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-slate-700 hover:border-emerald-500/50 bg-slate-950/60 hover:bg-slate-950 text-slate-300 hover:text-emerald-400 text-xs transition-colors">
+                        <Upload size={14} />
+                        <span>{isUploadingImage ? 'Uploading Image...' : 'Upload Image from PC'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={isUploadingImage}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setIsUploadingImage(true);
+                            try {
+                              const url = await adminService.uploadImage(file, 'categories');
+                              if (url) setImageUrl(url);
+                            } catch (err: any) {
+                              alert(err.message || 'Upload failed');
+                            } finally {
+                              setIsUploadingImage(false);
+                            }
+                          }}
+                        />
+                      </label>
+                      <input
+                        type="url"
+                        value={imageUrl}
+                        onChange={(e) => setImageUrl(e.target.value)}
+                        placeholder="Or paste Image URL..."
+                        className="flex-1 bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 text-xs"
+                      />
+                    </div>
+                  )}
+
                   {/* Quick Sample Presets */}
-                  <div className="flex flex-wrap items-center gap-1 mt-1.5">
-                    <span className="text-[10px] text-slate-400">Samples:</span>
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className="text-[10px] text-slate-400">Presets:</span>
                     {[
                       { label: 'Cleanser', url: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?q=80&w=600&auto=format&fit=crop' },
                       { label: 'Serum', url: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=600&auto=format&fit=crop' },
@@ -421,16 +489,16 @@ export const AdminCategories: React.FC = () => {
                     ))}
                   </div>
                 </div>
+              </div>
 
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">Display Sort Order</label>
-                  <input
-                    type="number"
-                    value={sortOrder}
-                    onChange={(e) => setSortOrder(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
-                  />
-                </div>
+              <div>
+                <label className="text-[11px] font-semibold text-slate-300 block mb-1">Display Sort Order</label>
+                <input
+                  type="number"
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
+                />
               </div>
 
               <div className="flex items-center gap-2 pt-1">

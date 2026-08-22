@@ -115,8 +115,8 @@ export const AdminBanners: React.FC = () => {
     try {
       setIsUploadingImage(true);
       const res = await adminService.uploadImage(file, 'skincare-banners');
-      if (res?.url) {
-        setImageUrl(res.url);
+      if (res) {
+        setImageUrl(res);
       }
     } catch (error) {
       console.error('Banner upload failed', error);

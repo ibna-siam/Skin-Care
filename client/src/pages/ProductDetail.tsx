@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { formatBDT } from '@skincare/shared';
 
+import { AnalyticsService } from '../services/analytics.service';
+
 export const ProductDetail: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
@@ -50,6 +52,19 @@ export const ProductDetail: React.FC = () => {
     enabled: !!slug,
   });
 
+  React.useEffect(() => {
+    if (product) {
+      document.title = `${product.name} - 100% Authentic Skincare BD`;
+      AnalyticsService.trackViewItem({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        category: (product as any).category?.name,
+        brand: (product as any).brand?.name,
+      });
+    }
+  }, [product]);
+
   const inWishlist = product ? isInWishlist(product.id) : false;
 
   const currentImage =
@@ -66,11 +81,19 @@ export const ProductDetail: React.FC = () => {
   const handleAddToCart = () => {
     if (!product) return;
     addToCart(product.id, quantity);
+    AnalyticsService.trackAddToCart(
+      { id: product.id, name: product.name, price: product.price },
+      quantity
+    );
   };
 
   const handleBuyNow = () => {
     if (!product) return;
     addToCart(product.id, quantity);
+    AnalyticsService.trackAddToCart(
+      { id: product.id, name: product.name, price: product.price },
+      quantity
+    );
     navigate('/checkout');
   };
 

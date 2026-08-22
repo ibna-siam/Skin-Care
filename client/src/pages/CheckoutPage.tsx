@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useCartStore } from '../stores/cartStore';
 import { useAuthStore } from '../stores/authStore';
+import { useStoreSettingsStore } from '../stores/storeSettingsStore';
 import { orderService } from '../services/order.service';
+import { AnalyticsService } from '../services/analytics.service';
+import { InvoiceModal } from '../components/invoice/InvoiceModal';
 import {
   BANGLADESH_DIVISIONS,
   calculateShippingFee,
@@ -18,13 +21,20 @@ import {
   ArrowRight,
   AlertCircle,
   Clock,
-  Sparkles
+  Sparkles,
+  Printer
 } from 'lucide-react';
 
 export const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
-  const { items, subtotal, appliedCoupon, fetchCart } = useCartStore();
+  const { items, subtotal, appliedCoupon, clearCart } = useCartStore();
   const { user } = useAuthStore();
+  const getSetting = useStoreSettingsStore((state) => state.getSetting);
+
+  // Dynamic Payment Settings (Single Source of Truth)
+  const isCodEnabled = getSetting('ENABLE_COD', 'true') !== 'false';
+  const isBkashEnabled = getSetting('ENABLE_BKASH', 'true') !== 'false';
+  const isSslEnabled = getSetting('ENABLE_SSLCOMMERZ', 'true') !== 'false';
 
   // Form Fields
   const [customerName, setCustomerName] = useState(user?.name || '');
@@ -36,12 +46,28 @@ export const CheckoutPage: React.FC = () => {
   const [fullAddress, setFullAddress] = useState('');
   const [postalCode, setPostalCode] = useState('');
   const [deliveryMethod, setDeliveryMethod] = useState<'STANDARD' | 'EXPRESS'>('STANDARD');
-  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'BKASH' | 'NAGAD' | 'SSLCOMMERZ'>('COD');
+  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'BKASH' | 'SSLCOMMERZ'>('COD');
   const [notes, setNotes] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [placedOrder, setPlacedOrder] = useState<any>(null);
+  const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
+
+  // Auto-switch payment method if default COD is disabled by admin
+  useEffect(() => {
+    if (!isCodEnabled && paymentMethod === 'COD') {
+      if (isBkashEnabled) setPaymentMethod('BKASH');
+      else if (isSslEnabled) setPaymentMethod('SSLCOMMERZ');
+    }
+  }, [isCodEnabled, isBkashEnabled, isSslEnabled, paymentMethod]);
+
+  // Track checkout begin
+  useEffect(() => {
+    if (items.length > 0) {
+      AnalyticsService.trackBeginCheckout(items, subtotal);
+    }
+  }, []);
 
   // Sync user profile data if logged in
   useEffect(() => {
@@ -62,6 +88,15 @@ export const CheckoutPage: React.FC = () => {
       }
     }
   }, [user]);
+
+  // Handle division change and auto-select primary district
+  const handleDivisionChange = (divId: string) => {
+    setSelectedDivision(divId);
+    const div = BANGLADESH_DIVISIONS.find((d) => d.id === divId);
+    if (div && div.districts.length > 0) {
+      setSelectedDistrict(div.districts[0].id);
+    }
+  };
 
   // Current districts for selected division
   const currentDivisionObj = BANGLADESH_DIVISIONS.find((d) => d.id === selectedDivision) || BANGLADESH_DIVISIONS[0];
@@ -114,14 +149,24 @@ export const CheckoutPage: React.FC = () => {
 
       if (response.success && response.data) {
         const { order, payment } = response.data;
-        await fetchCart(); // Clear cart state
+        clearCart(); // Complete cart flush (local Zustand + Database)
+
+        // Standard E-Commerce Purchase Tracking with Deduplication
+        AnalyticsService.trackPurchase({
+          id: order.id,
+          orderNumber: order.orderNumber,
+          totalAmount: order.totalAmount,
+          shippingFee: order.shippingFee,
+          discount: order.discount,
+          items: items,
+        });
 
         if (payment?.isDirectComplete || paymentMethod === 'COD') {
-          setPlacedOrder(order);
+          setPlacedOrder({ ...order, items });
         } else if (payment?.gatewayUrl) {
           window.location.href = payment.gatewayUrl;
         } else {
-          setPlacedOrder(order);
+          setPlacedOrder({ ...order, items });
         }
       }
     } catch (err: any) {
@@ -175,6 +220,12 @@ export const CheckoutPage: React.FC = () => {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
+          <button
+            onClick={() => setIsInvoiceOpen(true)}
+            className="px-6 py-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow"
+          >
+            <Printer size={16} /> View & Print Invoice
+          </button>
           <Link
             to={`/track-order?orderNumber=${placedOrder.orderNumber}&phone=${encodeURIComponent(customerPhone)}`}
             className="px-6 py-3 bg-brand-800 hover:bg-brand-900 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow"
@@ -188,82 +239,90 @@ export const CheckoutPage: React.FC = () => {
             Return to Homepage
           </Link>
         </div>
+
+        {/* Invoice Modal Popup */}
+        <InvoiceModal
+          order={placedOrder}
+          isOpen={isInvoiceOpen}
+          onClose={() => setIsInvoiceOpen(false)}
+        />
       </div>
     );
   }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-cream-300">
-        <div>
-          <h1 className="font-serif text-3xl font-bold text-charcoal-900">Checkout</h1>
-          <p className="text-xs text-gray-500 mt-1">Complete your delivery address and payment method</p>
-        </div>
-        <div className="flex items-center gap-1.5 text-xs text-brand-800 font-semibold bg-brand-50 px-3 py-1.5 rounded-full">
-          <Lock size={14} /> 256-Bit SSL Encrypted
-        </div>
+      {/* Breadcrumb / Heading */}
+      <div className="space-y-1">
+        <h1 className="font-serif text-3xl sm:text-4xl font-bold text-charcoal-900">Checkout</h1>
+        <p className="text-xs text-gray-500">
+          Enter your Bangladeshi delivery address and select your preferred payment method.
+        </p>
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-2 text-xs text-red-700">
-          <AlertCircle size={18} className="shrink-0" />
+        <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-3 text-rose-800 text-sm animate-in fade-in">
+          <AlertCircle size={20} className="shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
       <form onSubmit={handleSubmitOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column: Customer & Delivery Details */}
-        <div className="lg:col-span-8 space-y-6">
-          {/* Step 1: Contact Info */}
+        {/* Left Column: Form Details */}
+        <div className="lg:col-span-8 space-y-8">
+          {/* Step 1: Customer Info */}
           <div className="bg-white rounded-3xl border border-cream-300 p-6 sm:p-8 shadow-sm space-y-4">
             <h3 className="font-bold text-sm text-charcoal-900 uppercase tracking-wider flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-brand-800 text-white text-xs flex items-center justify-center">1</span>
-              Customer Information
+              Customer Details
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-charcoal-800 mb-1">Full Name *</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">
+                  Full Name *
+                </label>
                 <input
                   type="text"
                   required
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="e.g. Ayesha Rahman"
-                  className="w-full px-3.5 py-2.5 bg-cream-50 border border-cream-300 rounded-xl text-sm focus:bg-white focus:outline-none"
+                  className="w-full px-4 py-2.5 bg-cream-50 border border-cream-300 rounded-xl text-sm focus:bg-white focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-charcoal-800 mb-1">Email Address *</label>
-                <input
-                  type="email"
-                  required
-                  value={customerEmail}
-                  onChange={(e) => setCustomerEmail(e.target.value)}
-                  placeholder="customer@example.com"
-                  className="w-full px-3.5 py-2.5 bg-cream-50 border border-cream-300 rounded-xl text-sm focus:bg-white focus:outline-none"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-charcoal-800 mb-1">
-                  Bangladeshi Mobile Phone (for Delivery SMS & Courier) *
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">
+                  Phone Number (11 Digits BD) *
                 </label>
                 <input
                   type="tel"
                   required
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="01712345678"
-                  className="w-full px-3.5 py-2.5 bg-cream-50 border border-cream-300 rounded-xl text-sm font-mono focus:bg-white focus:outline-none"
+                  placeholder="01XXXXXXXXX"
+                  className="w-full px-4 py-2.5 bg-cream-50 border border-cream-300 rounded-xl text-sm font-mono focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">
+                  Email Address * (For e-Receipt & Tracking)
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={customerEmail}
+                  onChange={(e) => setCustomerEmail(e.target.value)}
+                  placeholder="name@example.com"
+                  className="w-full px-4 py-2.5 bg-cream-50 border border-cream-300 rounded-xl text-sm focus:bg-white focus:outline-none"
                 />
               </div>
             </div>
           </div>
 
-          {/* Step 2: Delivery Address */}
+          {/* Step 2: Shipping Destination */}
           <div className="bg-white rounded-3xl border border-cream-300 p-6 sm:p-8 shadow-sm space-y-4">
             <h3 className="font-bold text-sm text-charcoal-900 uppercase tracking-wider flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-brand-800 text-white text-xs flex items-center justify-center">2</span>
@@ -272,79 +331,83 @@ export const CheckoutPage: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-charcoal-800 mb-1">Division *</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">
+                  Division *
+                </label>
                 <select
                   value={selectedDivision}
-                  onChange={(e) => {
-                    setSelectedDivision(e.target.value);
-                    const div = BANGLADESH_DIVISIONS.find((d) => d.id === e.target.value);
-                    if (div && div.districts.length > 0) {
-                      setSelectedDistrict(div.districts[0].id);
-                    }
-                  }}
-                  className="w-full px-3.5 py-2.5 bg-cream-50 border border-cream-300 rounded-xl text-sm focus:bg-white focus:outline-none"
+                  onChange={(e) => handleDivisionChange(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-cream-50 border border-cream-300 rounded-xl text-sm focus:bg-white focus:outline-none"
                 >
-                  {BANGLADESH_DIVISIONS.map((div) => (
-                    <option key={div.id} value={div.id}>
-                      {div.name} ({div.bnName})
+                  {BANGLADESH_DIVISIONS.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-charcoal-800 mb-1">District / City *</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">
+                  District / Zone *
+                </label>
                 <select
                   value={selectedDistrict}
                   onChange={(e) => setSelectedDistrict(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-cream-50 border border-cream-300 rounded-xl text-sm focus:bg-white focus:outline-none"
+                  className="w-full px-4 py-2.5 bg-cream-50 border border-cream-300 rounded-xl text-sm focus:bg-white focus:outline-none"
                 >
                   {currentDivisionObj.districts.map((dist) => (
                     <option key={dist.id} value={dist.id}>
-                      {dist.name} ({dist.bnName})
+                      {dist.name}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-charcoal-800 mb-1">Thana / Area *</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">
+                  Area / Thana *
+                </label>
                 <input
                   type="text"
                   required
                   value={area}
                   onChange={(e) => setArea(e.target.value)}
-                  placeholder="e.g. Gulshan-2, Dhanmondi, Agrabad"
-                  className="w-full px-3.5 py-2.5 bg-cream-50 border border-cream-300 rounded-xl text-sm focus:bg-white focus:outline-none"
+                  placeholder="e.g. Dhanmondi 27, Gulshan 1, Mirpur 10"
+                  className="w-full px-4 py-2.5 bg-cream-50 border border-cream-300 rounded-xl text-sm focus:bg-white focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-charcoal-800 mb-1">Postal Code</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">
+                  Postal Code (Optional)
+                </label>
                 <input
                   type="text"
                   value={postalCode}
                   onChange={(e) => setPostalCode(e.target.value)}
-                  placeholder="e.g. 1212"
-                  className="w-full px-3.5 py-2.5 bg-cream-50 border border-cream-300 rounded-xl text-sm focus:bg-white focus:outline-none"
+                  placeholder="e.g. 1205"
+                  className="w-full px-4 py-2.5 bg-cream-50 border border-cream-300 rounded-xl text-sm font-mono focus:bg-white focus:outline-none"
                 />
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-charcoal-800 mb-1">Full Street Address *</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">
+                  Full Street Address & Landmarks *
+                </label>
                 <textarea
                   required
                   rows={2}
                   value={fullAddress}
                   onChange={(e) => setFullAddress(e.target.value)}
-                  placeholder="House number, Road number, Flat / Floor details..."
-                  className="w-full px-3.5 py-2.5 bg-cream-50 border border-cream-300 rounded-xl text-sm focus:bg-white focus:outline-none"
+                  placeholder="House #, Road #, Flat #, Landmark (e.g. Near Star Kabab)"
+                  className="w-full px-4 py-2.5 bg-cream-50 border border-cream-300 rounded-xl text-sm focus:bg-white focus:outline-none"
                 />
               </div>
             </div>
           </div>
 
-          {/* Step 3: Delivery Method */}
+          {/* Step 3: Delivery Speed */}
           <div className="bg-white rounded-3xl border border-cream-300 p-6 sm:p-8 shadow-sm space-y-4">
             <h3 className="font-bold text-sm text-charcoal-900 uppercase tracking-wider flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-brand-800 text-white text-xs flex items-center justify-center">3</span>
@@ -404,7 +467,7 @@ export const CheckoutPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Step 4: Payment Method */}
+          {/* Step 4: Payment Method (Synchronized with Admin Payment Settings) */}
           <div className="bg-white rounded-3xl border border-cream-300 p-6 sm:p-8 shadow-sm space-y-4">
             <h3 className="font-bold text-sm text-charcoal-900 uppercase tracking-wider flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-brand-800 text-white text-xs flex items-center justify-center">4</span>
@@ -412,97 +475,80 @@ export const CheckoutPage: React.FC = () => {
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* COD */}
-              <label
-                className={`p-4 rounded-2xl border-2 cursor-pointer flex flex-col justify-between transition-all ${
-                  paymentMethod === 'COD'
-                    ? 'border-brand-800 bg-brand-50/40'
-                    : 'border-cream-300 bg-white hover:bg-cream-50'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      checked={paymentMethod === 'COD'}
-                      onChange={() => setPaymentMethod('COD')}
-                      className="text-brand-800"
-                    />
-                    <span className="font-bold text-sm text-charcoal-900">Cash on Delivery (COD)</span>
+              {/* Cash on Delivery (COD) */}
+              {isCodEnabled && (
+                <label
+                  className={`p-4 rounded-2xl border-2 cursor-pointer flex flex-col justify-between transition-all ${
+                    paymentMethod === 'COD'
+                      ? 'border-brand-800 bg-brand-50/40'
+                      : 'border-cream-300 bg-white hover:bg-cream-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        checked={paymentMethod === 'COD'}
+                        onChange={() => setPaymentMethod('COD')}
+                        className="text-brand-800"
+                      />
+                      <span className="font-bold text-sm text-charcoal-900">Cash on Delivery (COD)</span>
+                    </div>
                   </div>
-                </div>
-                <p className="text-xs text-gray-500">Pay with cash when courier delivers the package to your door.</p>
-              </label>
+                  <p className="text-xs text-gray-500">Pay with cash when courier delivers the package to your door.</p>
+                </label>
+              )}
 
               {/* bKash */}
-              <label
-                className={`p-4 rounded-2xl border-2 cursor-pointer flex flex-col justify-between transition-all ${
-                  paymentMethod === 'BKASH'
-                    ? 'border-brand-800 bg-brand-50/40'
-                    : 'border-cream-300 bg-white hover:bg-cream-50'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      checked={paymentMethod === 'BKASH'}
-                      onChange={() => setPaymentMethod('BKASH')}
-                      className="text-brand-800"
-                    />
-                    <span className="font-bold text-sm text-pink-700">bKash Online Payment</span>
+              {isBkashEnabled && (
+                <label
+                  className={`p-4 rounded-2xl border-2 cursor-pointer flex flex-col justify-between transition-all ${
+                    paymentMethod === 'BKASH'
+                      ? 'border-brand-800 bg-brand-50/40'
+                      : 'border-cream-300 bg-white hover:bg-cream-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        checked={paymentMethod === 'BKASH'}
+                        onChange={() => setPaymentMethod('BKASH')}
+                        className="text-brand-800"
+                      />
+                      <span className="font-bold text-sm text-pink-700">bKash Online Payment</span>
+                    </div>
                   </div>
-                </div>
-                <p className="text-xs text-gray-500">Instant digital payment via official bKash gateway.</p>
-              </label>
-
-              {/* Nagad */}
-              <label
-                className={`p-4 rounded-2xl border-2 cursor-pointer flex flex-col justify-between transition-all ${
-                  paymentMethod === 'NAGAD'
-                    ? 'border-brand-800 bg-brand-50/40'
-                    : 'border-cream-300 bg-white hover:bg-cream-50'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      checked={paymentMethod === 'NAGAD'}
-                      onChange={() => setPaymentMethod('NAGAD')}
-                      className="text-brand-800"
-                    />
-                    <span className="font-bold text-sm text-orange-600">Nagad Payment</span>
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500">Pay directly with your Nagad wallet account.</p>
-              </label>
+                  <p className="text-xs text-gray-500">Instant digital payment via official bKash gateway.</p>
+                </label>
+              )}
 
               {/* SSLCommerz / Cards */}
-              <label
-                className={`p-4 rounded-2xl border-2 cursor-pointer flex flex-col justify-between transition-all ${
-                  paymentMethod === 'SSLCOMMERZ'
-                    ? 'border-brand-800 bg-brand-50/40'
-                    : 'border-cream-300 bg-white hover:bg-cream-50'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      checked={paymentMethod === 'SSLCOMMERZ'}
-                      onChange={() => setPaymentMethod('SSLCOMMERZ')}
-                      className="text-brand-800"
-                    />
-                    <span className="font-bold text-sm text-blue-700">Cards & NetBanking</span>
+              {isSslEnabled && (
+                <label
+                  className={`p-4 rounded-2xl border-2 cursor-pointer flex flex-col justify-between transition-all ${
+                    paymentMethod === 'SSLCOMMERZ'
+                      ? 'border-brand-800 bg-brand-50/40'
+                      : 'border-cream-300 bg-white hover:bg-cream-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        checked={paymentMethod === 'SSLCOMMERZ'}
+                        onChange={() => setPaymentMethod('SSLCOMMERZ')}
+                        className="text-brand-800"
+                      />
+                      <span className="font-bold text-sm text-blue-700">Cards & NetBanking (SSLCommerz)</span>
+                    </div>
                   </div>
-                </div>
-                <p className="text-xs text-gray-500">Visa, Mastercard, DBBL Nexus, City Bank, Brac Bank.</p>
-              </label>
+                  <p className="text-xs text-gray-500">Visa, Mastercard, DBBL Nexus, City Bank, Brac Bank, Internet Banking.</p>
+                </label>
+              )}
             </div>
           </div>
         </div>
